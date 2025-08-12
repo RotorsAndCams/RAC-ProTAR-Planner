@@ -1,0 +1,269 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{DDD2FEA8-801E-463B-8913-9CCCDA2D9429}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>ptPlugin1</RootNamespace>
+    <AssemblyName>ptPlugin1</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>$(SolutionDir)bin\Debug\net461\plugins\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>0</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>$(SolutionDir)bin\Release\net461\plugins\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+    <None Include="DOC\Landing.md" />
+    <None Include="packages.config" />
+    <None Include="timedwp.lua">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(SolutionDir)ExtLibs\BaseClasses\BaseClasses.csproj">
+      <Project>{2a8e8af5-74e7-49db-a42e-9360fa7a6cc4}</Project>
+      <Name>BaseClasses</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)ExtLibs\BSE.Windows.Forms\BSE.Windows.Forms.csproj">
+      <Project>{9ca367b8-0b98-49d1-84fb-735e612e3ba9}</Project>
+      <Name>BSE.Windows.Forms</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)ExtLibs\Core\Core.csproj">
+      <Project>{59129078-7b12-4198-b93e-0aa08d0bb7ed}</Project>
+      <Name>Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)ExtLibs\Mavlink\MAVLink.csproj">
+      <Project>{13d2ec90-c41f-48a1-aada-859b6dc24edc}</Project>
+      <Name>MAVLink</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)MissionPlanner.csproj">
+      <Project>{a2e22272-95fe-47b6-b050-9ae7e2055bf5}</Project>
+      <Name>MissionPlanner</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)ExtLibs\ArduPilot\MissionPlanner.ArduPilot.csproj">
+      <Project>{ca6345d3-7a6d-478b-a0ed-a58e50dcaa83}</Project>
+      <Name>MissionPlanner.ArduPilot</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)ExtLibs\Comms\MissionPlanner.Comms.csproj">
+      <Project>{825e7a10-390c-4a2b-b3a8-491d14966912}</Project>
+      <Name>MissionPlanner.Comms</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)ExtLibs\Controls\MissionPlanner.Controls.csproj">
+      <Project>{c8b88795-6d01-494d-83ad-6944bd4c5023}</Project>
+      <Name>MissionPlanner.Controls</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)ExtLibs\GeoUtility\GeoUtility.csproj">
+      <Project>{7f7994ce-823f-4a04-bbea-d0a3808ff56d}</Project>
+      <Name>GeoUtility</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)ExtLibs\GMap.NET.Core\GMap.NET.Core.csproj">
+      <Project>{d0c39d9d-bed0-418b-9a5e-713176caf40c}</Project>
+      <Name>GMap.NET.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)ExtLibs\GMap.NET.WindowsForms\GMap.NET.WindowsForms.csproj">
+      <Project>{e06def77-f933-42fb-afd7-db2d0d8d6a98}</Project>
+      <Name>GMap.NET.WindowsForms</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)ExtLibs\Utilities\MissionPlanner.Utilities.csproj">
+      <Project>{1378a66c-38e4-46f5-a05f-dc04ef7d4d16}</Project>
+      <Name>MissionPlanner.Utilities</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ExtLibs\GMap.NET.Drawing\GMap.NET.Drawing.csproj">
+      <Project>{d773accd-9c2d-4e94-a967-faa7ea2d21cb}</Project>
+      <Name>GMap.NET.Drawing</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ExtLibs\Interfaces\Interfaces.csproj">
+      <Project>{FD4D2994-9BEA-41A1-8C51-2E02D1E8503E}</Project>
+      <Name>Interfaces</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ExtLibs\Maps\MissionPlanner.Maps.csproj">
+      <Project>{6c4ff9c3-7aff-4274-b8fc-4a93a1faadea}</Project>
+      <Name>MissionPlanner.Maps</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="annunciator.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="annunciator.Designer.cs">
+      <DependentUpon>annunciator.cs</DependentUpon>
+    </Compile>
+    <Compile Include="batterypanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="batterypanel.Designer.cs">
+      <DependentUpon>batterypanel.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ekfStatControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ekfStatControl.Designer.cs">
+      <DependentUpon>ekfStatControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="engineControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="engineControl.Designer.cs">
+      <DependentUpon>engineControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="fleetSetup.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="fleetSetup.Designer.cs">
+      <DependentUpon>fleetSetup.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FloatingForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FloatingForm.Designer.cs">
+      <DependentUpon>FloatingForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="fuelControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="fuelControl.Designer.cs">
+      <DependentUpon>fuelControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="landingControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="landingControl.Designer.cs">
+      <DependentUpon>landingControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ModAndSet.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ModAndSet.Designer.cs">
+      <DependentUpon>ModAndSet.cs</DependentUpon>
+    </Compile>
+    <Compile Include="payloadcontrol.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="payloadcontrol.Designer.cs">
+      <DependentUpon>payloadcontrol.cs</DependentUpon>
+    </Compile>
+    <Compile Include="payloadsetup.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="payloadsetup.Designer.cs">
+      <DependentUpon>payloadsetup.cs</DependentUpon>
+    </Compile>
+    <Compile Include="payloadSetupForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="payloadSetupForm.Designer.cs">
+      <DependentUpon>payloadSetupForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="pitotControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="pitotControl.Designer.cs">
+      <DependentUpon>pitotControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="ptPlugin1.cs" />
+    <Compile Include="TimedWpConsole.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="TimedWpConsole.Designer.cs">
+      <DependentUpon>TimedWpConsole.cs</DependentUpon>
+    </Compile>
+    <Compile Include="unThemedButton.cs">
+      <SubType>Component</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="FastColoredTextBox, Version=2.16.24.0, Culture=neutral, PublicKeyToken=fb8aa12b994ef61b, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\FCTB.2.16.24\lib\FastColoredTextBox.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Connected Services\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Gaugebg.png" />
+    <Content Include="protarPayloadBG.png" />
+    <Content Include="warning1.png" />
+    <Content Include="wrench.png" />
+    <Content Include="wrench1.png" />
+    <Content Include="wrench2.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="batterypanel.resx">
+      <DependentUpon>batterypanel.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ekfStatControl.resx">
+      <DependentUpon>ekfStatControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="engineControl.resx">
+      <DependentUpon>engineControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="fleetSetup.resx">
+      <DependentUpon>fleetSetup.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="fuelControl.resx">
+      <DependentUpon>fuelControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="landingControl.resx">
+      <DependentUpon>landingControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ModAndSet.resx">
+      <DependentUpon>ModAndSet.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="payloadcontrol.resx">
+      <DependentUpon>payloadcontrol.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="payloadsetup.resx">
+      <DependentUpon>payloadsetup.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="payloadSetupForm.resx">
+      <DependentUpon>payloadSetupForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="pitotControl.resx">
+      <DependentUpon>pitotControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="TimedWpConsole.resx">
+      <DependentUpon>TimedWpConsole.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
