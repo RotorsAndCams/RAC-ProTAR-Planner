@@ -55,6 +55,7 @@ using DotSpatial.Topology;
 using Polygon = SharpKml.Dom.Polygon;
 using LineString = SharpKml.Dom.LineString;
 using Dowding.Model;
+// using BruTile.Wms;
 
 namespace MissionPlanner.GCSViews
 {
@@ -8284,11 +8285,26 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
             lTime3.Text = $"ID {vehicleIdList[2]} Total Time {routeTimes[2]} sec";
         }
 
+        // Separation distances from config
+        private int _horizontalMinDistance;
+        private string _horizontalMinDistanceKey = "Protar_Formation_HorMinDist";
 
+        private int _verticalMinDistance;
+        private string _verticalMinDistanceKey = "Protar_Formation_VerMinDist";
+
+        // Default values for separation
+        const int MIN_HORIZONTAL_DISTANCE = 20; // Minimum horizontal separation in meters
+        const int MIN_VERTICAL_DISTANCE = 10;   // Minimum vertical separation in meters
 
 
         private void bGenerateFormation_Click(object sender, EventArgs e)
         {
+            // Get separation limits from config
+            _horizontalMinDistance = Settings.Instance.GetInt32(_horizontalMinDistanceKey, MIN_HORIZONTAL_DISTANCE);
+            Settings.Instance[_horizontalMinDistanceKey] = _horizontalMinDistance.ToString();
+
+            _verticalMinDistance = Settings.Instance.GetInt32(_verticalMinDistanceKey, MIN_VERTICAL_DISTANCE);
+            Settings.Instance[_verticalMinDistanceKey] = _verticalMinDistance.ToString();
 
             if (Commands.Rows.Count < 3) return;
 
@@ -8296,11 +8312,24 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
             int yOffset = 0;
             int zOffset = 0;
 
+            // Retrieves user-input offsets for the first follower vehicle from text fields
             Int32.TryParse(xOffset1.Text, out xOffset);
             Int32.TryParse(yOffset1.Text, out yOffset);
             Int32.TryParse(zOffset1.Text, out zOffset);
 
             //Todo: do checks for integrity
+            // Check integrity for first follower: Ensure safe horizontal and vertical distances
+            double horizontalDistance = Math.Sqrt(xOffset * xOffset + yOffset * yOffset);
+            if (horizontalDistance < _horizontalMinDistance)
+            {
+                CustomMessageBox.Show($"Horizontal offset must be at least {_horizontalMinDistance} meters for safety.");
+                return;
+            }
+            if (Math.Abs(zOffset) < _verticalMinDistance)
+            {
+                CustomMessageBox.Show($"Vertical offset must be at least {_verticalMinDistance} meters (absolute value) for safety.");
+                return;
+            }
 
             if (getSysIdIndex(currentSysId) != 0)
             {
@@ -8369,6 +8398,36 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                 Int32.TryParse(xOffset2.Text, out xOffset);
                 Int32.TryParse(yOffset2.Text, out yOffset);
                 Int32.TryParse(zOffset2.Text, out zOffset);
+
+                // Check integrity for second follower vs lead: Ensure safe horizontal and vertical distances
+                double horizontalDistance2 = Math.Sqrt(xOffset * xOffset + yOffset * yOffset);
+                if (horizontalDistance2 < _horizontalMinDistance)
+                {
+                    CustomMessageBox.Show($"Horizontal offset for second follower must be at least {_horizontalMinDistance} meters for safety.");
+                    return;
+                }
+                if (Math.Abs(zOffset) < _verticalMinDistance)
+                {
+                    CustomMessageBox.Show($"Vertical offset for second follower must be at least {_verticalMinDistance} meters (absolute value) for safety.");
+                    return;
+                }
+
+                // Check distance between the two followers: Ensure safe horizontal and vertical separation
+                double horizontalBetweenFollowers = Math.Sqrt(
+                    (xOffset - xOffset) * (xOffset - xOffset) +
+                    (yOffset - yOffset) * (yOffset - yOffset)
+                );
+                if (horizontalBetweenFollowers < _horizontalMinDistance)
+                {
+                    CustomMessageBox.Show($"Horizontal distance between the two followers must be at least {_horizontalMinDistance} meters for safety.");
+                    return;
+                }
+                double verticalBetweenFollowers = Math.Abs(zOffset - zOffset);
+                if (verticalBetweenFollowers < _verticalMinDistance)
+                {
+                    CustomMessageBox.Show($"Vertical distance between the two followers must be at least {_verticalMinDistance} meters (absolute value) for safety.");
+                    return;
+                }
 
                 wplists[2].Clear();
                 for (int i = 0; i < sourcelist.Count; i++)
