@@ -32,6 +32,8 @@
             this.CMB_serialport = new System.Windows.Forms.ComboBox();
             this.BUT_connect = new MissionPlanner.Controls.MyButton();
             this.CMB_baudrate = new System.Windows.Forms.ComboBox();
+            this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
+            this.tableLayoutPanel1.SuspendLayout();
             this.SuspendLayout();
             // 
             // CMB_serialport
@@ -64,14 +66,21 @@
             resources.ApplyResources(this.CMB_baudrate, "CMB_baudrate");
             this.CMB_baudrate.Name = "CMB_baudrate";
             // 
+            // tableLayoutPanel1
+            // 
+            resources.ApplyResources(this.tableLayoutPanel1, "tableLayoutPanel1");
+            this.tableLayoutPanel1.Controls.Add(this.CMB_serialport, 0, 0);
+            this.tableLayoutPanel1.Controls.Add(this.BUT_connect, 1, 0);
+            this.tableLayoutPanel1.Controls.Add(this.CMB_baudrate, 0, 1);
+            this.tableLayoutPanel1.Name = "tableLayoutPanel1";
+            // 
             // ConnectionOptions
             // 
+            this.AcceptButton = this.BUT_connect;
             resources.ApplyResources(this, "$this");
-            
-            this.Controls.Add(this.CMB_baudrate);
-            this.Controls.Add(this.BUT_connect);
-            this.Controls.Add(this.CMB_serialport);
+            this.Controls.Add(this.tableLayoutPanel1);
             this.Name = "ConnectionOptions";
+            this.tableLayoutPanel1.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -81,5 +90,6 @@
         private System.Windows.Forms.ComboBox CMB_serialport;
         private Controls.MyButton BUT_connect;
         private System.Windows.Forms.ComboBox CMB_baudrate;
+        private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
     }
 }
