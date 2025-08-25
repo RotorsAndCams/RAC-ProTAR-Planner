@@ -137,6 +137,7 @@ namespace ptPlugin1
         public ToolStripMenuItem tsStartSim = new ToolStripMenuItem();
         public ToolStripMenuItem tsSetupFleet = new ToolStripMenuItem();
         public ToolStripMenuItem tsDoAutoConnect = new ToolStripMenuItem();
+        public ToolStripMenuItem tsConnectionOptions = new ToolStripMenuItem();
 
         string actualPanel = "";
 
@@ -226,6 +227,10 @@ namespace ptPlugin1
             tsDoAutoConnect.Text = "Trigger AutoConnect";
             tsDoAutoConnect.Click += TsDoAutoConnect_Click; 
             Host.FDMenuMap.Items.Add(tsDoAutoConnect);
+
+            tsConnectionOptions.Text = "Connection Options";
+            tsConnectionOptions.Click += TsConnectOptions_Click;
+            Host.FDMenuMap.Items.Add(tsConnectionOptions);
 
             Panel panel1 = Host.MainForm.Controls.Find("Panel1", true).FirstOrDefault() as Panel;
 
@@ -775,6 +780,11 @@ namespace ptPlugin1
         private void TsDoAutoConnect_Click(object sender, EventArgs e)
         {
             AutoConnect.Start();
+        }
+
+        private void TsConnectOptions_Click(object sender, EventArgs e)
+        {
+            new ConnectionOptions().Show(Host.MainForm);
         }
 
         // Setup sysid's and names and number of planes in the air;
