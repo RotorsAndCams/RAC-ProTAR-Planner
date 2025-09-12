@@ -78,6 +78,8 @@ namespace MissionPlanner.GCSViews
             this.coords1 = new MissionPlanner.Controls.Coords();
             this.lbl_status = new System.Windows.Forms.Label();
             this.panelWaypoints = new System.Windows.Forms.Panel();
+            this.LBL_Spacing = new System.Windows.Forms.Label();
+            this.TXT_Spacing = new System.Windows.Forms.TextBox();
             this.TXT_DefaultTwpSpeed = new System.Windows.Forms.TextBox();
             this.label8 = new System.Windows.Forms.Label();
             this.chk_usemavftp = new System.Windows.Forms.CheckBox();
@@ -430,6 +432,8 @@ namespace MissionPlanner.GCSViews
             // 
             // panelWaypoints
             // 
+            this.panelWaypoints.Controls.Add(this.LBL_Spacing);
+            this.panelWaypoints.Controls.Add(this.TXT_Spacing);
             this.panelWaypoints.Controls.Add(this.TXT_DefaultTwpSpeed);
             this.panelWaypoints.Controls.Add(this.label8);
             this.panelWaypoints.Controls.Add(this.chk_usemavftp);
@@ -450,6 +454,18 @@ namespace MissionPlanner.GCSViews
             resources.ApplyResources(this.panelWaypoints, "panelWaypoints");
             this.panelWaypoints.ForeColor = System.Drawing.SystemColors.ControlText;
             this.panelWaypoints.Name = "panelWaypoints";
+            // 
+            // LBL_Spacing
+            // 
+            resources.ApplyResources(this.LBL_Spacing, "LBL_Spacing");
+            this.LBL_Spacing.Name = "LBL_Spacing";
+            this.LBL_Spacing.Click += new System.EventHandler(this.LBL_Spacing_Click);
+            // 
+            // TXT_Spacing
+            // 
+            resources.ApplyResources(this.TXT_Spacing, "TXT_Spacing");
+            this.TXT_Spacing.Name = "TXT_Spacing";
+            this.TXT_Spacing.TextChanged += new System.EventHandler(this.TXT_Spacing_TextChanged);
             // 
             // TXT_DefaultTwpSpeed
             // 
@@ -1881,5 +1897,7 @@ namespace MissionPlanner.GCSViews
         public TextBox TXT_DefaultTwpSpeed;
         public Label label8;
         private MyButton bAdjustSpeed;
+        public Label LBL_Spacing;
+        public TextBox TXT_Spacing;
     }
 }

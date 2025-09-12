@@ -8315,11 +8315,19 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                 // Get approximate segment length to decide sample count
                 double segLength = ComputeDistance(p1, p2);
                 // Choose sample count (denser sampling)
-                int samples = Math.Max((int)Math.Ceiling(segLength / spacingMeters) + 1, 4);
+                // int samples = Math.Max((int)Math.Ceiling(segLength / spacingMeters) + 1, 4);
+                int samples = (int)Math.Ceiling(segLength / spacingMeters);
 
-                for (int j = 0; j < samples; j++)
+                if (samples < 1)
+                    samples = 1;  // just the original point
+
+                for (int j = 0; j <= samples; j++)
                 {
-                    double t = (double)j / (samples - 1);
+                    // Skip the first point (t=0) except for the very first segment
+                    if (i > 0 && j == 0)
+                        continue;
+
+                    double t = (double)j / samples;
                     Locationwp interpolated = CatmullRomInterpolate(p0, p1, p2, p3, t);
                     denseWps.Add(interpolated);
                 }
@@ -8550,8 +8558,15 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                 return;
             }
 
-            double spacing = 400.0; // meters between points
+            //double spacing = double.Parse(TXT_Spacing.Text);//400.0; // meters between points
+            double spacing = 200.0; // default spacing in meters
 
+            // Try to parse from the textbox
+            if (!double.TryParse(TXT_Spacing.Text, out spacing))
+            {
+                MessageBox.Show("Invalid spacing value. Using default 200 meters.");
+                spacing = 200.0;
+            }
 
             //Save current leader setup
             List<Locationwp> originallist = GetCommandList();
@@ -8791,6 +8806,25 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                 }
             }
             updatealltime();
+
+        }
+
+        private void LBL_Spacing_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void TXT_Spacing_TextChanged(object sender, EventArgs e)
+        {
+            //double value;
+            //if (!double.TryParse(TXT_Spacing.Text, out value))
+            //{
+            //    TXT_Spacing.BackColor = Color.LightPink; // indicate invalid input
+            //}
+            //else
+            //{
+            //    TXT_Spacing.BackColor = Color.White; // valid input
+            //}
 
         }
     }
