@@ -8313,10 +8313,18 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                 Locationwp p3 = padded[i + 3];
 
                 // Get approximate segment length to decide sample count
-                double segLength = ComputeDistance(p1, p2);
+                // double segLength = ComputeDistance(p1, p2);
                 // Choose sample count (denser sampling)
                 // int samples = Math.Max((int)Math.Ceiling(segLength / spacingMeters) + 1, 4);
-                int samples = (int)Math.Ceiling(segLength / spacingMeters);
+                // int samples = (int)Math.Ceiling(segLength / spacingMeters);
+
+                double heading1 = ComputeHeading(p1, p2);
+                double heading2 = ComputeHeading(p2, p3);
+                double angleDiff = Math.Abs(heading2 - heading1);
+                if (angleDiff > Math.PI)
+                    angleDiff = 2 * Math.PI - angleDiff;
+
+                int samples = (int)Math.Ceiling(angleDiff / (Math.PI / 18)); // 1 sample every ~10° // tweak denominator for density
 
                 if (samples < 1)
                     samples = 1;  // just the original point
@@ -8338,6 +8346,66 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
             //denseWps.Add(originalWps[originalWps.Count - 1]);
 
             return denseWps;
+        }
+
+        private static List<Locationwp> GenerateCurvatureAdaptiveSpline(
+            List<Locationwp> originalWps,
+            double baseSpacing,        // base spacing for "flat" segments
+            double curvatureFactor // how much to reduce spacing on sharp turns
+            )
+        {
+            if (originalWps.Count < 4)
+                throw new ArgumentException("Need at least 4 waypoints for Catmull-Rom spline.");
+
+            // Pad the list for spline endpoints
+            List<Locationwp> padded = new List<Locationwp> { originalWps[0] };
+            padded.AddRange(originalWps);
+            padded.Add(originalWps[originalWps.Count - 1]);
+
+            List<Locationwp> denseWps = new List<Locationwp>();
+            denseWps.Add(originalWps[0]); // start with the first point
+
+            double tStep = 0.05; // initial fine sampling step
+            Locationwp lastAdded = originalWps[0];
+
+            for (int i = 0; i < padded.Count - 3; i++)
+            {
+                for (double t = 0; t <= 1.0; t += tStep)
+                {
+                    Locationwp point = CatmullRomInterpolate(padded[i], padded[i + 1], padded[i + 2], padded[i + 3], t);
+
+                    // Compute local curvature
+                    double headingPrev = ComputeHeading(lastAdded, point); // your ComputeHeading
+                                                                           // lookahead: small t offset ahead to estimate curvature
+                    double tLookahead = Math.Min(t + tStep, 1.0);
+                    Locationwp pointAhead = CatmullRomInterpolate(padded[i], padded[i + 1], padded[i + 2], padded[i + 3], tLookahead);
+                    double headingAhead = ComputeHeading(point, pointAhead);
+
+                    double deltaHeading = Math.Abs(NormalizeAngle(headingAhead - headingPrev)); // radians
+                    double distance = ComputeDistance(lastAdded, point);
+
+                    // Adaptive spacing: sharper turns → smaller spacing
+                    double localSpacing = baseSpacing / (1.0 + curvatureFactor * deltaHeading);
+
+                    if (distance >= localSpacing)
+                    {
+                        denseWps.Add(point);
+                        lastAdded = point;
+                    }
+                }
+            }
+
+            // Ensure last original waypoint is added
+            denseWps.Add(originalWps[originalWps.Count - 1]);
+            return denseWps;
+        }
+
+        // Normalize angle to [-π, π]
+        private static double NormalizeAngle(double angle)
+        {
+            while (angle > Math.PI) angle -= 2 * Math.PI;
+            while (angle < -Math.PI) angle += 2 * Math.PI;
+            return angle;
         }
 
         // ----------------------------------------------
@@ -8370,7 +8438,7 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
         }
 
         // Compute azimuth/heading from point A to point B (radians)
-        private double ComputeHeading(Locationwp A, Locationwp B)
+        private static double ComputeHeading(Locationwp A, Locationwp B)
         {
             double lat1 = MathHelper.deg2rad * A.lat;
             double lon1 = MathHelper.deg2rad * A.lng;
@@ -8559,13 +8627,21 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
             }
 
             //double spacing = double.Parse(TXT_Spacing.Text);//400.0; // meters between points
-            double spacing = 200.0; // default spacing in meters
+            double spacing = 200; // default spacing in meters
+            double curvatureFactor = 10; // increase for more density on sharp turns
 
             // Try to parse from the textbox
             if (!double.TryParse(TXT_Spacing.Text, out spacing))
             {
                 MessageBox.Show("Invalid spacing value. Using default 200 meters.");
                 spacing = 200.0;
+            }
+
+            // Try to parse from the textbox
+            if (!double.TryParse(TXT_Curvature.Text, out curvatureFactor))
+            {
+                MessageBox.Show("Invalid curvature value. Using default 10.");
+                curvatureFactor = 10;
             }
 
             //Save current leader setup
@@ -8580,7 +8656,7 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
             }
             CustomMessageBox.Show($"leaderWaypointsOnly:{leaderWaypointsOnly.Count}");
 
-            List<Locationwp> sourcelist = GenerateSmoothPath(leaderWaypointsOnly, spacing);
+            List<Locationwp> sourcelist = GenerateCurvatureAdaptiveSpline(leaderWaypointsOnly, spacing, curvatureFactor);
             CustomMessageBox.Show($"sourcelist:{sourcelist.Count}");
 
             while (Commands.Rows.Count > 1)
@@ -8825,6 +8901,11 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
             //{
             //    TXT_Spacing.BackColor = Color.White; // valid input
             //}
+
+        }
+
+        private void TXT_Curvature_TextChanged(object sender, EventArgs e)
+        {
 
         }
     }
