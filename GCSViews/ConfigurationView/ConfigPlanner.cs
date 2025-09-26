@@ -148,7 +148,7 @@ namespace MissionPlanner.GCSViews.ConfigurationView
             SetCheckboxFromConfig("Protar_speechekf", CHK_ekfWarning);
             SetCheckboxFromConfig("Protar_speechvibration", CHK_VibrationWarning);
             SetCheckboxFromConfig("Protar_speechgps", CHK_GPSWarning);
-
+            SetCheckboxFromConfig("Protar_speechpitot", CHK_PitotWarning);
             // this can't fail because it set at startup
             NUM_tracklength.Value = Settings.Instance.GetInt32("NUM_tracklength", 200);
 
@@ -369,6 +369,7 @@ namespace MissionPlanner.GCSViews.ConfigurationView
                 CHK_ekfWarning.Visible = true;
                 CHK_VibrationWarning.Visible = true;
                 CHK_GPSWarning.Visible = true;
+                CHK_PitotWarning.Visible = true;
             }
             else
             {
@@ -390,6 +391,7 @@ namespace MissionPlanner.GCSViews.ConfigurationView
                 CHK_ekfWarning.Visible = false;
                 CHK_VibrationWarning.Visible = false;
                 CHK_GPSWarning.Visible = false;
+                CHK_PitotWarning.Visible = false;
             }
         }
 
@@ -1183,5 +1185,40 @@ namespace MissionPlanner.GCSViews.ConfigurationView
         }
 
         #endregion
+
+        private void CHK_PitotWarning_CheckedChanged(object sender, EventArgs e)
+        {
+            if (startup)
+                return;
+            Settings.Instance["Protar_speechpitot"] = ((CheckBox)sender).Checked.ToString();
+
+            if (((CheckBox)sender).Checked)
+            {
+                // Pitot temp low trigger
+                string speechstring = "0";
+                int number = new int();
+                if (Settings.Instance["Protar_speechlowpitottemp"] != null)
+                    speechstring = Settings.Instance["Protar_speechlowpitottemp"];
+                if (DialogResult.Cancel ==
+                    InputBox.Show("Low pitot temperature trigger", "What LOW pitot temperature do you want to warn at (°C)?", ref speechstring))
+                    return;
+                if (int.TryParse(speechstring, out number))
+                    Settings.Instance["Protar_speechlowpitottemp"] = speechstring;
+                else
+                    Console.WriteLine("Invalid input for <Protar_speechlowpitottemp>. Give an integer!");
+
+                // Pitot temp high trigger
+                speechstring = "0";
+                if (Settings.Instance["Protar_speechhighpitottemp"] != null)
+                    speechstring = Settings.Instance["Protar_speechhighpitottemp"];
+                if (DialogResult.Cancel ==
+                    InputBox.Show("High pitot temperature trigger", "What HIGH pitot temperature do you want to warn at (°C)?", ref speechstring))
+                    return;
+                if (int.TryParse(speechstring, out number))
+                    Settings.Instance["Protar_speechhighpitottemp"] = speechstring;
+                else
+                    Console.WriteLine("Invalid input for <Protar_speechhighpitottemp>. Give an integer!");
+            }
+        }
     }
 }

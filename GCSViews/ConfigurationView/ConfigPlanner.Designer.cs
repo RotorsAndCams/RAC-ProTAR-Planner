@@ -115,6 +115,7 @@
             this.CHK_ekfWarning = new System.Windows.Forms.CheckBox();
             this.CHK_VibrationWarning = new System.Windows.Forms.CheckBox();
             this.CHK_GPSWarning = new System.Windows.Forms.CheckBox();
+            this.CHK_PitotWarning = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.NUM_tracklength)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.num_gcsid)).BeginInit();
             this.SuspendLayout();
@@ -807,9 +808,17 @@
             this.CHK_GPSWarning.UseVisualStyleBackColor = true;
             this.CHK_GPSWarning.CheckedChanged += new System.EventHandler(this.CHK_GPSWarning_CheckedChanged);
             // 
+            // CHK_PitotWarning
+            // 
+            resources.ApplyResources(this.CHK_PitotWarning, "CHK_PitotWarning");
+            this.CHK_PitotWarning.Name = "CHK_PitotWarning";
+            this.CHK_PitotWarning.UseVisualStyleBackColor = true;
+            this.CHK_PitotWarning.CheckedChanged += new System.EventHandler(this.CHK_PitotWarning_CheckedChanged);
+            // 
             // ConfigPlanner
             // 
             resources.ApplyResources(this, "$this");
+            this.Controls.Add(this.CHK_PitotWarning);
             this.Controls.Add(this.CHK_GPSWarning);
             this.Controls.Add(this.CHK_VibrationWarning);
             this.Controls.Add(this.CHK_ekfWarning);
@@ -993,5 +1002,6 @@
         private System.Windows.Forms.CheckBox CHK_ekfWarning;
         private System.Windows.Forms.CheckBox CHK_VibrationWarning;
         private System.Windows.Forms.CheckBox CHK_GPSWarning;
+        private System.Windows.Forms.CheckBox CHK_PitotWarning;
     }
 }

@@ -1734,7 +1734,7 @@ namespace ptPlugin1
                 if (port.sysidcurrent != aMain1.SysID && port.sysidcurrent != aMain2.SysID && port.sysidcurrent != aMain3.SysID) 
                     continue;
 
-                const int MIN_ALTITUDE_TO_SPEAK = 5; // in meters
+                const int MIN_ALTITUDE_TO_SPEAK = -1; // in meters
                 if (port.MAV.cs.alt < MIN_ALTITUDE_TO_SPEAK) 
                     continue;
                 #endregion
@@ -1852,10 +1852,21 @@ namespace ptPlugin1
                 if (Settings.Instance.GetBoolean("Protar_speechgps"))
                 {
                     if (port.MAV.cs.gpshdop > Settings.Instance.GetFloat("Protar_speechlowhdoptrigger"))
-                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} GPS HDOP is high.");
+                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} GPS HDOP high.");
 
                     if (port.MAV.cs.satcount < Settings.Instance.GetInt32("Protar_speechlowsatellitecount"))
-                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} satellite count is low.");
+                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} satellite count low.");
+                }
+                #endregion
+
+                #region Pitot
+                if (Settings.Instance.GetBoolean("Protar_speechpitot"))
+                {
+                    if (port.MAV.cs.pitot_temp < Settings.Instance.GetInt32("Protar_speechlowpitottemp"))
+                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} pitot temperature low.");
+
+                    else if (port.MAV.cs.pitot_temp > Settings.Instance.GetInt32("Protar_speechhighpitottemp"))
+                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} pitot temperature high.");
                 }
                 #endregion
             }
