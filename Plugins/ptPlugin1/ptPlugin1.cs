@@ -20,6 +20,8 @@ using System.Media;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using static MissionPlanner.Utilities.LTM;
 
@@ -62,11 +64,87 @@ namespace ptPlugin1
         public float airspeed3;
     }
 
+    /// <summary>
+    /// Calls asyncSpeech to speak a message.
+    /// The same message won't be spoken again until the timeout expires.
+    /// If a message can not be spoken due to speechEngine is not ready then write it to Console.
+    /// </summary>
+    public sealed class Speaker
+    {
+        // Setup Singleton
+        public static readonly Speaker _instance = new Speaker();
+        public static Speaker Instance => _instance;
+        private Speaker() { }
+
+        // Dictionary to track last spoken times
+        private readonly Dictionary<string, DateTime> lastSpoken = new Dictionary<string, DateTime>();
+
+        // Time between same message being spoken
+        private readonly TimeSpan timeout = TimeSpan.FromSeconds(10);
+
+        // Flag to indicate if a message was missed
+        private bool missedMessage = false;
+
+        /// <summary>
+        /// Calls asyncSpeech to speak a message.
+        /// Returns true if the message was spoken, false if it was skipped.
+        /// </summary>
+        public bool SpeakMessage(string message)
+        {
+            // Check if speach disabled, speech engine not available, message has been spoken already within the timeout period
+            if ((!MainV2.speechEnabled() || MainV2.speechEngine == null) ||
+                (lastSpoken.ContainsKey(message) && ((DateTime.Now - lastSpoken[message]) <= timeout)))
+                return false;
+
+            // Speak message if able
+            if (MainV2.speechEngine.IsReady)
+            {
+                MainV2.speechEngine.SpeakAsync(message);                
+                lastSpoken[message] = DateTime.Now;
+                return true;
+            }
+            // Write to console if not and set missed message flag
+            else
+            {
+                Console.WriteLine($"[Speaker] Message skipped: {message} — speech engine not ready.");
+                
+                missedMessage = true;
+                return false;   
+            }
+        }
+
+        public void MissedMessageNotification() 
+        {
+            // Do nothing if no missed message
+            if (missedMessage == false)
+                return;
+
+            // Try to notify user that messages were missed
+            if (SpeakMessage("Warning: Messages not spoken."))
+                missedMessage = false;
+        }
+    }
+
     [PreventTheming]
     public partial class ptPlugin1 : Plugin
     {
         public Situation sit = new Situation();
-        
+
+        // Thresholds
+        public const int MIN_ENG_RPM = 27000;
+        public const int MAX_ENG_EGT = 900;
+        public const int FUEL_LOW = 8;
+        public const int FUEL_CRITICAL = 5;
+        public const int LINK_QUALITY_GCS_LOW = 8;
+        public const int LINK_QUALITY_GCS_CRITICAL = 5;
+        public const int EKF_VARIANCE_HIGH = 50;
+        public const int EKF_VARIANCE_CRITICAL = 80;
+        public const int VIBRATION_HIGH = 30;
+        public const int VIBRATION_CRITICAL = 60;
+
+        // Setup for message skip after fleet setup
+        private DateTime lastFleetSetupTime = DateTime.MinValue;
+
         public static int plane1ID = 0;
         public static int plane2ID = 0;    
         public static int plane3ID = 0;
@@ -768,6 +846,7 @@ namespace ptPlugin1
             }
             catch (Exception ex)
             {
+                Speaker.Instance.SpeakMessage("Flight Termination message parse error.");
                 Console.WriteLine($"Flight Termination message parse error: {ex.Message}");
             }
         }
@@ -799,6 +878,8 @@ namespace ptPlugin1
             aMain1.Name = plane1Name;    
             aMain2.Name = plane2Name;
             aMain3.Name = plane3Name;
+
+            lastFleetSetupTime = DateTime.Now;
 
             MainV2.instance.BeginInvoke((MethodInvoker)(() =>
             {
@@ -838,6 +919,8 @@ namespace ptPlugin1
             }
             catch
             {
+                if (Settings.Instance.GetBoolean("Protar_speechfleetsetuperror"))
+                    Speaker.Instance.SpeakMessage("Unable to send fleet setup to the Flight Termination Unit.");
                 CustomMessageBox.Show("Unable to send fleet setup to the Flight Termination Unit. Check network connectivity!");
             }
         }
@@ -868,6 +951,8 @@ namespace ptPlugin1
                 }
                 catch (Exception ex)
                 {
+                    if (Settings.Instance.GetBoolean("Protar_speechlandingerror"))
+                        Speaker.Instance.SpeakMessage("Unable to switch back to Guided.");
                     CustomMessageBox.Show("Unable to switch back to Guided" + ex.Message, "ERROR");
                 }
             }
@@ -885,7 +970,7 @@ namespace ptPlugin1
         }
 
         private void Lc_setCruiseSpeedClicked(object sender, EventArgs e)
-        {
+        {   
             if (Host.cs.connected)
             {
                 var speed = Host.comPort.MAV.param["TRIM_ARSPD_CM"].Value / 100;
@@ -897,6 +982,8 @@ namespace ptPlugin1
                 }
                 catch
                 {
+                    if (Settings.Instance.GetBoolean("Protar_speechlandingerror"))
+                        Speaker.Instance.SpeakMessage("Unable to set speed.");
                     CustomMessageBox.Show("Unable to set speed", "Error");
                 }
             }
@@ -955,38 +1042,43 @@ namespace ptPlugin1
                             fctb.TextSource.CurrentTB = fctb;
 
                             port.MAV.cs.messages.ForEach(x =>
-                             {
-                                 if (x.Item1 > lastDisplayedMessage1)
+                            {
+                            if (x.Item1 > lastDisplayedMessage1)
+                                {
+
+                                 TextStyle displayStyle;
+                                 switch ((int)x.Item3)
                                  {
-
-                                     TextStyle displayStyle;
-                                     switch ((int)x.Item3)
-                                     {
-                                         case 0:
-                                         case 1:
-                                         case 2:
-                                             {
-                                                 displayStyle = errorStyle;
-                                                 aMain1.setStatus("MSG", Stat.ALERT);
-                                                 break;
-                                             }
-                                         case 3:
-                                         case 4:
-                                             {
-                                                 displayStyle = warningStyle;
-                                                 aMain1.setStatus("MSG", Stat.WARNING);
-                                                 break;
-                                             }
-                                         default:
-                                             {
-                                                 displayStyle = infoStyle;
-                                                 break;
-                                             }
-                                     }
-
-                                     fctb.SelectionStart = 0;
-                                     fctb.InsertText("(ID " + port.sysidcurrent + ") " + x.Item1 + " : (" + x.Item3 + ") " + x.Item2 + "\r\n", displayStyle);
+                                     case 0:
+                                     case 1:
+                                     case 2:
+                                         {
+                                             displayStyle = errorStyle;
+                                             aMain1.setStatus("MSG", Stat.ALERT);
+                                             break;
+                                         }
+                                     case 3:
+                                     case 4:
+                                         {
+                                             displayStyle = warningStyle;
+                                             aMain1.setStatus("MSG", Stat.WARNING);
+                                             break;
+                                         }
+                                     default:
+                                         {
+                                             displayStyle = infoStyle;
+                                             break;
+                                         }
                                  }
+
+                                 fctb.SelectionStart = 0;
+                                 fctb.InsertText("(ID " + port.sysidcurrent + ") " + x.Item1 + " : (" + x.Item3 + ") " + x.Item2 + "\r\n", displayStyle);
+                                    // skip if it is a messageHigh from the currently active port to avoid double messages
+                                    if (displayStyle == errorStyle && Settings.Instance.GetBoolean("Protar_speechmavlinkerrormsgs") &&
+                                    (DateTime.Now - lastFleetSetupTime).TotalSeconds > 1 &&
+                                    (port.sysidcurrent != MainV2.comPort.sysidcurrent || !CurrentState.messageHighSet.Contains(x.Item2)))
+                                    Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent}: {x.Item2}.");
+                                }
                              });
                             fctb.EndUpdate();
                             lastDisplayedMessage1 = port.MAV.cs.messages.LastOrDefault().time;
@@ -1033,6 +1125,11 @@ namespace ptPlugin1
 
                                     fctb.SelectionStart = 0;
                                     fctb.InsertText("(ID " + port.sysidcurrent + ") " + x.Item1 + " : (" + x.Item3 + ") " + x.Item2 + "\r\n", displayStyle);
+                                    // skip if the message is from the currently active port to avoid double messages
+                                    if (displayStyle == errorStyle && Settings.Instance.GetBoolean("Protar_speechmavlinkerrormsgs") &&
+                                    (DateTime.Now - lastFleetSetupTime).TotalSeconds > 1 &&
+                                    (port.sysidcurrent != MainV2.comPort.sysidcurrent || !CurrentState.messageHighSet.Contains(x.Item2)))
+                                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent}: {x.Item2}.");
                                 }
                             });
                             fctb.EndUpdate();
@@ -1080,6 +1177,11 @@ namespace ptPlugin1
 
                                     fctb.SelectionStart = 0;
                                     fctb.InsertText("(ID " + port.sysidcurrent + ") " + x.Item1 + " : (" + x.Item3 + ") " + x.Item2 + "\r\n", displayStyle);
+                                    // skip if the message is from the currently active port to avoid double messages
+                                    if (displayStyle == errorStyle && Settings.Instance.GetBoolean("Protar_speechmavlinkerrormsgs") &&
+                                    (DateTime.Now - lastFleetSetupTime).TotalSeconds > 1 &&
+                                    (port.sysidcurrent != MainV2.comPort.sysidcurrent || !CurrentState.messageHighSet.Contains(x.Item2)))
+                                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent}: {x.Item2}.");
                                 }
                             });
                             fctb.EndUpdate();
@@ -1088,6 +1190,7 @@ namespace ptPlugin1
                     }
                     //---
 
+                    updateErrorSpeech();
                 }
 
                 #endregion
@@ -1201,6 +1304,8 @@ namespace ptPlugin1
                     catch
                     {
                         lc.state = LandState.None;
+                        if (Settings.Instance.GetBoolean("Protar_speechlandingerror"))
+                            Speaker.Instance.SpeakMessage("Unable to set speed.");
                         CustomMessageBox.Show("Unable to set speed", "Error");
                     }
                 }
@@ -1227,6 +1332,8 @@ namespace ptPlugin1
                     catch
                     {
                         lc.state = LandState.None;
+                        if (Settings.Instance.GetBoolean("Protar_speechlandingerror"))
+                            Speaker.Instance.SpeakMessage("Unable to set speed.");
                         CustomMessageBox.Show("Unable to set speed", "Error");
                     }
 
@@ -1245,8 +1352,10 @@ namespace ptPlugin1
                     }
                     catch (Exception ex)
                     {
-                        CustomMessageBox.Show("Unable go to Landing point" + ex.Message, "ERROR");
                         lc.state = LandState.None;
+                        if (Settings.Instance.GetBoolean("Protar_speechlandingerror"))
+                            Speaker.Instance.SpeakMessage("Unable to go to Landing point");
+                        CustomMessageBox.Show("Unable to go to Landing point" + ex.Message, "ERROR");
                     }
                 }
             }
@@ -1265,6 +1374,8 @@ namespace ptPlugin1
                     catch
                     {
                         lc.state = LandState.None;
+                        if (Settings.Instance.GetBoolean("Protar_speechlandingerror"))
+                            Speaker.Instance.SpeakMessage("Unable to set speed.");
                         CustomMessageBox.Show("Unable to set speed", "Error");
                     }
 
@@ -1347,16 +1458,20 @@ namespace ptPlugin1
             }
             catch
             {
+                if (Settings.Instance.GetBoolean("Protar_speechlandingerror"))
+                    Speaker.Instance.SpeakMessage("Unable to set speed.");
                 CustomMessageBox.Show("Unable to set speed", "Error");
             }
         }
 
         private void Lc_startLandingClicked(object sender, EventArgs e)
-        {
+        {   
             // Check waiting point distance
             if (Host.cs.Location.GetDistance(lc.WaitingPoint) > 8000)
             {
-                CustomMessageBox.Show("Waiting point is more tha 8Km away!", "ERROR");
+                if (Settings.Instance.GetBoolean("Protar_speechlandingerror"))
+                    Speaker.Instance.SpeakMessage("Waiting point is more than 8 kilometers away.");
+                CustomMessageBox.Show("Waiting point is more than 8Km away!", "ERROR");
                 return;
             }
             // TODO: Check valid point
@@ -1370,6 +1485,8 @@ namespace ptPlugin1
             catch
             {
                 lc.state = LandState.None;
+                if (Settings.Instance.GetBoolean("Protar_speechlandingerror"))
+                    Speaker.Instance.SpeakMessage("Unable to set speed.");
                 CustomMessageBox.Show("Unable to set speed", "Error");
             }
 
@@ -1388,7 +1505,9 @@ namespace ptPlugin1
             catch (Exception ex)
             {
                 lc.state = LandState.None;
-                CustomMessageBox.Show("Unable go to Waiting point" + ex.Message, "ERROR");
+                if (Settings.Instance.GetBoolean("Protar_speechlandingerror"))
+                    Speaker.Instance.SpeakMessage("Unable to go to Waiting point");
+                CustomMessageBox.Show("Unable to go to Waiting point" + ex.Message, "ERROR");
             }
 
             // Increment state
@@ -1437,6 +1556,8 @@ namespace ptPlugin1
                 Host.comPort.UnSubscribeToPacketType(sub);
                 if (ans == false)
                 {
+                    if (Settings.Instance.GetBoolean("speecharmenabled"))
+                        Speaker.Instance.SpeakMessage($"{action} request rejected by MAV");
                     if (CustomMessageBox.Show(
                             action + " failed.\n" + sb.ToString() + "\nForce " + action +
                             " can bypass safety checks,\nwhich can lead to the vehicle crashing\nand causing serious injuries.\n\nDo you wish to Force " +
@@ -1447,13 +1568,17 @@ namespace ptPlugin1
                         ans = Host.comPort.doARM((byte)Host.comPort.sysidcurrent, (byte)Host.comPort.compidcurrent, !isitarmed, true);
                         if (ans == false)
                         {
-                            CustomMessageBox.Show("ARM request rejected by MAV", "Error");
+                            if (Settings.Instance.GetBoolean("speecharmenabled"))
+                                Speaker.Instance.SpeakMessage($"Force {action} request rejected by MAV");
+                            CustomMessageBox.Show($"Force {action} request rejected by MAV", "Error");
                         }
                     }
                 }
             }
             catch
             {
+                if (Settings.Instance.GetBoolean("speecharmenabled"))
+                    Speaker.Instance.SpeakMessage("No response for the ARM command.");
                 CustomMessageBox.Show("No response for the ARM command", "Error");
             }
         }
@@ -1502,6 +1627,8 @@ namespace ptPlugin1
                 lc.updateLandingData(lp, wrap360(winddir - landReverse), Host.cs.g_wind_vel, (int)Host.comPort.MAV.param["WP_LOITER_RAD"].Value);
             else
             {
+                if (Settings.Instance.GetBoolean("Protar_speechlandingerror"))
+                    Speaker.Instance.SpeakMessage("Not connected - landing point is not valid.");
                 CustomMessageBox.Show("Not connected - landing point is not valid");
             }
 
@@ -1562,11 +1689,13 @@ namespace ptPlugin1
 
                     if (!Host.comPort.doCommand(cmd, param1, param2, param3, 0, 0, 0, 0))
                     {
+                        Speaker.Instance.SpeakMessage("Calibration Failed");
                         CustomMessageBox.Show("Calibration Failed" + cmd, "ERROR");
                     }
                 }
                 catch
                 {
+                    Speaker.Instance.SpeakMessage("Calibration Failed");
                     CustomMessageBox.Show("Calibration failed", "ERROR");
                 }
 
@@ -1588,6 +1717,150 @@ namespace ptPlugin1
             plControl.setupEnabled(true);
             plControl.updateAll(fPs.payloadStatus);
             plControl.redrawControls();
+        }
+
+        public void updateErrorSpeech()
+        {
+            foreach (var port in MainV2.Comports)
+            {
+                #region Skip conditions
+                // Hanlde only the ports used by the active planes
+
+                // Skip default case aMain<X>.SysID = 0
+                if (port.sysidcurrent == 0) 
+                    continue;
+
+                // Skip every MAVLink comunication which does not come from the planes
+                if (port.sysidcurrent != aMain1.SysID && port.sysidcurrent != aMain2.SysID && port.sysidcurrent != aMain3.SysID) 
+                    continue;
+
+                const int MIN_ALTITUDE_TO_SPEAK = 5; // in meters
+                if (port.MAV.cs.alt < MIN_ALTITUDE_TO_SPEAK) 
+                    continue;
+                #endregion
+
+                // ------------ Error handling -------------
+
+                #region Engine
+                if (Settings.Instance.GetBoolean("Protar_speechengineerrors"))
+                {
+                    if (port.MAV.cs.eng_rpm < Settings.Instance.GetInt32("Protar_speechlowrpmtrigger"))
+                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} RPM low");
+
+                    if (port.MAV.cs.eng_egt > Settings.Instance.GetInt32("Protar_speechhighegttrigger"))
+                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} EGT high");
+
+                    string engineError;
+                    switch ((byte)port.MAV.cs.eng_error)
+                    {
+                        case 0:
+                            engineError = " ";
+                            break;
+                        case 1:
+                            engineError = "RPM Low";
+                            break;
+                        case 2:
+                            engineError = "No Switch channel";
+                            break;
+                        case 4:
+                            engineError = "No Throttle channel";
+                            break;
+                        case 8:
+                            engineError = "EGT Error";
+                            break;
+                        case 16:
+                            engineError = " "; //"RPM High" handled separately
+                            break;
+                        case 32:
+                            engineError = "Low voltage";
+                            break;
+                        case 64:
+                            engineError = "AS Low voltage";
+                            break;
+                        default:
+                            engineError = "Unknown error";
+                            break;
+                    }
+                    if (engineError != " ")
+                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} engine error: {engineError}");
+                }
+                #endregion
+
+                #region Fuel
+                if (Settings.Instance.GetBoolean("Protar_speechlowfuel") 
+                    && (port.MAV.cs.fuel_level_raw < Settings.Instance.GetInt32("Protar_speechlowfueltrigger"))) 
+                    Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} low fuel");
+                #endregion
+
+                #region Communication
+                Console.WriteLine(Settings.Instance.GetInt32("Protar_speechlowlinkqualitytrigger"));
+                if (Settings.Instance.GetBoolean("Protar_speechlowlinkquality") 
+                    && (port.MAV.cs.linkqualitygcs < Settings.Instance.GetInt32("Protar_speechlowlinkqualitytrigger")))
+                    Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} low link quality");
+                #endregion
+
+                #region Batteries
+                if (Settings.Instance.GetBoolean("speechbatteryenabled"))
+                {
+                    switch (getBatteryStatus(port.MAV.cs))
+                    {
+                        case 1:
+                        case 2:
+                            Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} low battery");
+                            break;
+                        default:
+                            break;
+                    }
+                }
+
+                #endregion
+
+                #region EKF
+                if (Settings.Instance.GetBoolean("Protar_speechekf"))
+                {
+                    void CheckVariance(string name, int value)
+                    {
+                        if (value > ptPlugin1.EKF_VARIANCE_CRITICAL)
+                            Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} {name} variance critical.");
+                        else if (value > ptPlugin1.EKF_VARIANCE_HIGH)
+                            Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} {name} variance high.");
+                    }
+
+                    CheckVariance("velocity", (int)(port.MAV.cs.ekfvelv * 100));
+                    CheckVariance("horizontal position", (int)(port.MAV.cs.ekfposhor * 100));
+                    CheckVariance("vertical position", (int)(port.MAV.cs.ekfposvert * 100));
+                    CheckVariance("compass", (int)(port.MAV.cs.ekfcompv * 100));
+                    CheckVariance("terrain", (int)(port.MAV.cs.ekfteralt * 100));
+                }
+                #endregion
+
+                #region Vibration
+                if (Settings.Instance.GetBoolean("Protar_speechvibration"))
+                {
+                    if ((int)port.MAV.cs.vibex > VIBRATION_CRITICAL
+                        || (int)port.MAV.cs.vibey > VIBRATION_CRITICAL
+                        || (int)port.MAV.cs.vibez > VIBRATION_CRITICAL)
+                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} vibration critical.");
+                    else if ((int)port.MAV.cs.vibex > VIBRATION_HIGH
+                             || (int)port.MAV.cs.vibey > VIBRATION_HIGH
+                             || (int)port.MAV.cs.vibez > VIBRATION_HIGH)
+                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} vibration high.");
+                }
+                #endregion
+
+                #region GPS
+                if (Settings.Instance.GetBoolean("Protar_speechgps"))
+                {
+                    if (port.MAV.cs.gpshdop > Settings.Instance.GetFloat("Protar_speechlowhdoptrigger"))
+                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} GPS HDOP is high.");
+
+                    if (port.MAV.cs.satcount < Settings.Instance.GetInt32("Protar_speechlowsatellitecount"))
+                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} satellite count is low.");
+                }
+                #endregion
+            }
+
+            Speaker.Instance.MissedMessageNotification();
         }
 
         // This updates the gauge data based on the currently selected mavlink datastream;
@@ -1616,19 +1889,19 @@ namespace ptPlugin1
                     {
                         Stat engineStat = Stat.NOMINAL;
                         Stat fuelStat = Stat.NOMINAL;
-                        if (port.MAV.cs.eng_rpm < 27000) engineStat = Stat.ALERT;
-                        if (port.MAV.cs.eng_egt > 900) engineStat = Stat.ALERT;
+                        if (port.MAV.cs.eng_rpm < MIN_ENG_RPM) engineStat = Stat.ALERT;
+                        if (port.MAV.cs.eng_egt > MAX_ENG_EGT) engineStat = Stat.ALERT; 
 
 
-                        if (port.MAV.cs.fuel_loaded - port.MAV.cs.fuel_consumed < 8) fuelStat = Stat.WARNING;
-                        if (port.MAV.cs.fuel_loaded - port.MAV.cs.fuel_consumed < 5) fuelStat = Stat.ALERT;
+                        if (port.MAV.cs.fuel_loaded - port.MAV.cs.fuel_consumed < FUEL_LOW) fuelStat = Stat.WARNING;
+                        if (port.MAV.cs.fuel_loaded - port.MAV.cs.fuel_consumed < FUEL_CRITICAL) fuelStat = Stat.ALERT;
 
                         aMain1.setStatus("ENGINE", engineStat);
                         aMain1.setStatus("FUEL", fuelStat);
 
                         var lq = port.MAV.cs.linkqualitygcs;
-                        if (lq >= 95) aMain1.setStatus("COMMS", Stat.NOMINAL);
-                        else if (lq < 95 && lq > 70) aMain1.setStatus("COMMS", Stat.WARNING);
+                        if (lq >= LINK_QUALITY_GCS_LOW) aMain1.setStatus("COMMS", Stat.NOMINAL);
+                        else if (lq < LINK_QUALITY_GCS_CRITICAL && lq > LINK_QUALITY_GCS_LOW) aMain1.setStatus("COMMS", Stat.WARNING);
                         else aMain1.setStatus("COMMS", Stat.ALERT);
                         switch (getBatteryStatus(port.MAV.cs))
                         {
@@ -1655,17 +1928,17 @@ namespace ptPlugin1
                     {
                         Stat engineStat = Stat.NOMINAL;
                         Stat fuelStat = Stat.NOMINAL;
-                        if (port.MAV.cs.eng_rpm < 27000) engineStat = Stat.ALERT;
-                        if (port.MAV.cs.eng_egt > 900) engineStat = Stat.ALERT;
+                        if (port.MAV.cs.eng_rpm < MIN_ENG_RPM) engineStat = Stat.ALERT;
+                        if (port.MAV.cs.eng_egt > MAX_ENG_EGT) engineStat = Stat.ALERT;
 
-                        if (port.MAV.cs.fuel_loaded - port.MAV.cs.fuel_consumed < 8) fuelStat = Stat.WARNING;
-                        if (port.MAV.cs.fuel_loaded - port.MAV.cs.fuel_consumed < 5) fuelStat = Stat.ALERT;
+                        if (port.MAV.cs.fuel_loaded - port.MAV.cs.fuel_consumed < FUEL_LOW) fuelStat = Stat.WARNING;
+                        if (port.MAV.cs.fuel_loaded - port.MAV.cs.fuel_consumed < FUEL_CRITICAL) fuelStat = Stat.ALERT;
 
                         aMain2.setStatus("ENGINE", engineStat);
                         aMain2.setStatus("FUEL", fuelStat);
                         var lq = port.MAV.cs.linkqualitygcs;
-                        if (lq >= 95) aMain2.setStatus("COMMS", Stat.NOMINAL);
-                        else if (lq < 95 && lq > 70) aMain2.setStatus("COMMS", Stat.WARNING);
+                        if (lq >= LINK_QUALITY_GCS_LOW) aMain2.setStatus("COMMS", Stat.NOMINAL);
+                        else if (lq < LINK_QUALITY_GCS_LOW && lq > LINK_QUALITY_GCS_CRITICAL) aMain2.setStatus("COMMS", Stat.WARNING);
                         else aMain2.setStatus("COMMS", Stat.ALERT);
                         switch (getBatteryStatus(port.MAV.cs))
                         {
@@ -1691,17 +1964,17 @@ namespace ptPlugin1
                     {
                         Stat engineStat = Stat.NOMINAL;
                         Stat fuelStat = Stat.NOMINAL;
-                        if (port.MAV.cs.eng_rpm < 27000) engineStat = Stat.ALERT;
-                        if (port.MAV.cs.eng_egt > 900) engineStat = Stat.ALERT;
+                        if (port.MAV.cs.eng_rpm < MIN_ENG_RPM) engineStat = Stat.ALERT;
+                        if (port.MAV.cs.eng_egt > MAX_ENG_EGT) engineStat = Stat.ALERT;
 
-                        if (port.MAV.cs.fuel_loaded - port.MAV.cs.fuel_consumed < 8) fuelStat = Stat.WARNING;
-                        if (port.MAV.cs.fuel_loaded - port.MAV.cs.fuel_consumed < 5) fuelStat = Stat.ALERT;
+                        if (port.MAV.cs.fuel_loaded - port.MAV.cs.fuel_consumed < FUEL_LOW) fuelStat = Stat.WARNING;
+                        if (port.MAV.cs.fuel_loaded - port.MAV.cs.fuel_consumed < FUEL_CRITICAL) fuelStat = Stat.ALERT;
 
                         aMain3.setStatus("ENGINE", engineStat);
                         aMain3.setStatus("FUEL", fuelStat);
                         var lq = port.MAV.cs.linkqualitygcs;
-                        if (lq >= 95) aMain3.setStatus("COMMS", Stat.NOMINAL);
-                        else if (lq < 95 && lq > 70) aMain3.setStatus("COMMS", Stat.WARNING);
+                        if (lq >= LINK_QUALITY_GCS_LOW) aMain3.setStatus("COMMS", Stat.NOMINAL);
+                        else if (lq < LINK_QUALITY_GCS_LOW && lq > LINK_QUALITY_GCS_CRITICAL) aMain3.setStatus("COMMS", Stat.WARNING);
                         else aMain3.setStatus("COMMS", Stat.ALERT);
                         switch (getBatteryStatus(port.MAV.cs))
                         {
@@ -2281,6 +2554,7 @@ namespace ptPlugin1
                     }
                     catch
                     {
+                        Speaker.Instance.SpeakMessage($"Unable to set waypoint on {port.MAV.sysid}");
                         Console.WriteLine($"Unable to set waypoint on {port.MAV.sysid}");
                     }
                 }

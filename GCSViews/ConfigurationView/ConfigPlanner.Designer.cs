@@ -106,6 +106,15 @@
             this.CHK_params_bg = new System.Windows.Forms.CheckBox();
             this.chk_slowMachine = new System.Windows.Forms.CheckBox();
             this.CHK_speechArmedOnly = new System.Windows.Forms.CheckBox();
+            this.CHK_FleetSetupErrors = new System.Windows.Forms.CheckBox();
+            this.CHK_LandingErrors = new System.Windows.Forms.CheckBox();
+            this.CHK_MavlinkErrorMsgs = new System.Windows.Forms.CheckBox();
+            this.CHK_EngineErrors = new System.Windows.Forms.CheckBox();
+            this.CHK_FuelWarning = new System.Windows.Forms.CheckBox();
+            this.CHK_CommWarning = new System.Windows.Forms.CheckBox();
+            this.CHK_ekfWarning = new System.Windows.Forms.CheckBox();
+            this.CHK_VibrationWarning = new System.Windows.Forms.CheckBox();
+            this.CHK_GPSWarning = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.NUM_tracklength)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.num_gcsid)).BeginInit();
             this.SuspendLayout();
@@ -735,9 +744,81 @@
             this.CHK_speechArmedOnly.UseVisualStyleBackColor = true;
             this.CHK_speechArmedOnly.CheckedChanged += new System.EventHandler(this.CHK_speechArmedOnly_CheckedChanged);
             // 
+            // CHK_FleetSetupErrors
+            // 
+            resources.ApplyResources(this.CHK_FleetSetupErrors, "CHK_FleetSetupErrors");
+            this.CHK_FleetSetupErrors.Name = "CHK_FleetSetupErrors";
+            this.CHK_FleetSetupErrors.UseVisualStyleBackColor = true;
+            this.CHK_FleetSetupErrors.CheckedChanged += new System.EventHandler(this.CHK_FleetSetupErrors_CheckedChanged);
+            // 
+            // CHK_LandingErrors
+            // 
+            resources.ApplyResources(this.CHK_LandingErrors, "CHK_LandingErrors");
+            this.CHK_LandingErrors.Name = "CHK_LandingErrors";
+            this.CHK_LandingErrors.UseVisualStyleBackColor = true;
+            this.CHK_LandingErrors.CheckedChanged += new System.EventHandler(this.CHK_LandingErrors_CheckedChanged);
+            // 
+            // CHK_MavlinkErrorMsgs
+            // 
+            resources.ApplyResources(this.CHK_MavlinkErrorMsgs, "CHK_MavlinkErrorMsgs");
+            this.CHK_MavlinkErrorMsgs.Name = "CHK_MavlinkErrorMsgs";
+            this.CHK_MavlinkErrorMsgs.UseVisualStyleBackColor = true;
+            this.CHK_MavlinkErrorMsgs.CheckedChanged += new System.EventHandler(this.CHK_MavlinkErrorMsgs_CheckedChanged);
+            // 
+            // CHK_EngineErrors
+            // 
+            resources.ApplyResources(this.CHK_EngineErrors, "CHK_EngineErrors");
+            this.CHK_EngineErrors.Name = "CHK_EngineErrors";
+            this.CHK_EngineErrors.UseVisualStyleBackColor = true;
+            this.CHK_EngineErrors.CheckedChanged += new System.EventHandler(this.CHK_EngineErrors_CheckedChanged);
+            // 
+            // CHK_FuelWarning
+            // 
+            resources.ApplyResources(this.CHK_FuelWarning, "CHK_FuelWarning");
+            this.CHK_FuelWarning.Name = "CHK_FuelWarning";
+            this.CHK_FuelWarning.UseVisualStyleBackColor = true;
+            this.CHK_FuelWarning.CheckedChanged += new System.EventHandler(this.CHK_FuelWarning_CheckedChanged);
+            // 
+            // CHK_CommWarning
+            // 
+            resources.ApplyResources(this.CHK_CommWarning, "CHK_CommWarning");
+            this.CHK_CommWarning.Name = "CHK_CommWarning";
+            this.CHK_CommWarning.UseVisualStyleBackColor = true;
+            this.CHK_CommWarning.CheckedChanged += new System.EventHandler(this.CHK_CommWarning_CheckedChanged);
+            // 
+            // CHK_ekfWarning
+            // 
+            resources.ApplyResources(this.CHK_ekfWarning, "CHK_ekfWarning");
+            this.CHK_ekfWarning.Name = "CHK_ekfWarning";
+            this.CHK_ekfWarning.UseVisualStyleBackColor = true;
+            this.CHK_ekfWarning.CheckedChanged += new System.EventHandler(this.CHK_ekfWarning_CheckedChanged);
+            // 
+            // CHK_VibrationWarning
+            // 
+            resources.ApplyResources(this.CHK_VibrationWarning, "CHK_VibrationWarning");
+            this.CHK_VibrationWarning.Name = "CHK_VibrationWarning";
+            this.CHK_VibrationWarning.UseVisualStyleBackColor = true;
+            this.CHK_VibrationWarning.CheckedChanged += new System.EventHandler(this.CHK_VibrationWarning_CheckedChanged);
+            // 
+            // CHK_GPSWarning
+            // 
+            resources.ApplyResources(this.CHK_GPSWarning, "CHK_GPSWarning");
+            this.CHK_GPSWarning.Name = "CHK_GPSWarning";
+            this.CHK_GPSWarning.UseVisualStyleBackColor = true;
+            this.CHK_GPSWarning.CheckedChanged += new System.EventHandler(this.CHK_GPSWarning_CheckedChanged);
+            // 
             // ConfigPlanner
             // 
             resources.ApplyResources(this, "$this");
+            this.Controls.Add(this.CHK_GPSWarning);
+            this.Controls.Add(this.CHK_VibrationWarning);
+            this.Controls.Add(this.CHK_ekfWarning);
+            this.Controls.Add(this.CHK_CommWarning);
+            this.Controls.Add(this.CHK_FuelWarning);
+            this.Controls.Add(this.CHK_EngineErrors);
+            this.Controls.Add(this.CHK_MavlinkErrorMsgs);
+            this.Controls.Add(this.CHK_LandingErrors);
+            this.Controls.Add(this.CHK_FleetSetupErrors);
             this.Controls.Add(this.CHK_speechArmedOnly);
             this.Controls.Add(this.chk_slowMachine);
             this.Controls.Add(this.CHK_params_bg);
@@ -903,5 +984,14 @@
         private System.Windows.Forms.CheckBox CHK_params_bg;
         private System.Windows.Forms.CheckBox chk_slowMachine;
         private System.Windows.Forms.CheckBox CHK_speechArmedOnly;
+        private System.Windows.Forms.CheckBox CHK_FleetSetupErrors;
+        private System.Windows.Forms.CheckBox CHK_LandingErrors;
+        private System.Windows.Forms.CheckBox CHK_MavlinkErrorMsgs;
+        private System.Windows.Forms.CheckBox CHK_EngineErrors;
+        private System.Windows.Forms.CheckBox CHK_FuelWarning;
+        private System.Windows.Forms.CheckBox CHK_CommWarning;
+        private System.Windows.Forms.CheckBox CHK_ekfWarning;
+        private System.Windows.Forms.CheckBox CHK_VibrationWarning;
+        private System.Windows.Forms.CheckBox CHK_GPSWarning;
     }
 }

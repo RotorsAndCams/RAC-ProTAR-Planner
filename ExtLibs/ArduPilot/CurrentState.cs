@@ -1079,6 +1079,9 @@ namespace MissionPlanner
             get { return messages.LastOrDefault().message; }
         }
 
+        // Collect unique messages to avoid spamming
+        public static HashSet<string> messageHighSet = new HashSet<string>();
+
         /// <summary>
         /// a message that originates from within the gcs
         /// </summary>
@@ -1107,6 +1110,7 @@ namespace MissionPlanner
                     }
                 }
 
+                CurrentState.messageHighSet.Add(value);
                 messages.Add((DateTime.Now, value, MAVLink.MAV_SEVERITY.CRITICAL));
             }
         }
