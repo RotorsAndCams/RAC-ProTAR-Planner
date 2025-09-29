@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 using WebCamService;
+using static MissionPlanner.Utilities.LTM;
 
 namespace MissionPlanner.GCSViews.ConfigurationView
 {
@@ -149,6 +150,9 @@ namespace MissionPlanner.GCSViews.ConfigurationView
             SetCheckboxFromConfig("Protar_speechvibration", CHK_VibrationWarning);
             SetCheckboxFromConfig("Protar_speechgps", CHK_GPSWarning);
             SetCheckboxFromConfig("Protar_speechpitot", CHK_PitotWarning);
+            SetCheckboxFromConfig("Protar_speechjoystickdisabled", CHK_JoystickError);
+
+
             // this can't fail because it set at startup
             NUM_tracklength.Value = Settings.Instance.GetInt32("NUM_tracklength", 200);
 
@@ -370,6 +374,7 @@ namespace MissionPlanner.GCSViews.ConfigurationView
                 CHK_VibrationWarning.Visible = true;
                 CHK_GPSWarning.Visible = true;
                 CHK_PitotWarning.Visible = true;
+                CHK_JoystickError.Visible = true;  
             }
             else
             {
@@ -392,6 +397,7 @@ namespace MissionPlanner.GCSViews.ConfigurationView
                 CHK_VibrationWarning.Visible = false;
                 CHK_GPSWarning.Visible = false;
                 CHK_PitotWarning.Visible = false;
+                CHK_JoystickError.Visible = false;
             }
         }
 
@@ -1070,7 +1076,7 @@ namespace MissionPlanner.GCSViews.ConfigurationView
                 if (int.TryParse(speechstring, out int number) && number >= 0)
                     Settings.Instance["Protar_speechlowrpmtrigger"] = speechstring;
                 else
-                    Console.WriteLine("Invalid input for <Protar_speechlowrpmtrigger>. Give a positive integer!");
+                    CustomMessageBox.Show("Invalid input for <Protar_speechlowrpmtrigger>. Give a positive integer!");
 
                 // EGT high
                 speechstring = "0";
@@ -1082,7 +1088,7 @@ namespace MissionPlanner.GCSViews.ConfigurationView
                 if (int.TryParse(speechstring, out number) && number >= 0)
                     Settings.Instance["Protar_speechhighegttrigger"] = speechstring;
                 else
-                    Console.WriteLine("Invalid input for <Protar_speechhighegttrigger>. Give a positive integer!");
+                    CustomMessageBox.Show("Invalid input for <Protar_speechhighegttrigger>. Give a positive integer!");
             }
         }
 
@@ -1103,7 +1109,7 @@ namespace MissionPlanner.GCSViews.ConfigurationView
                 if (int.TryParse(speechstring, out int number) && number >= 0)
                     Settings.Instance["Protar_speechlowfueltrigger"] = speechstring;
                 else
-                    Console.WriteLine("Invalid input for <Protar_speechlowfueltrigger>. Give a positive integer!");
+                    CustomMessageBox.Show("Invalid input for <Protar_speechlowfueltrigger>. Give a positive integer!");
             }
         }
 
@@ -1121,10 +1127,11 @@ namespace MissionPlanner.GCSViews.ConfigurationView
                 if (DialogResult.Cancel ==
                     InputBox.Show("Low link quatity trigger", "What link quatity do you want to warn at (%)?", ref speechstring))
                     return;
+                // input check
                 if (int.TryParse(speechstring, out int number) && number >= 0)
                     Settings.Instance["Protar_speechlowlinkqualitytrigger"] = speechstring;
                 else
-                    Console.WriteLine("Invalid input for <Protar_speechlowlinkqualitytrigger>. Give a positive integer!");
+                    CustomMessageBox.Show("Invalid input for <Protar_speechlowlinkqualitytrigger>. Give a positive integer!");
             }
         }
 
@@ -1150,41 +1157,41 @@ namespace MissionPlanner.GCSViews.ConfigurationView
 
             if (((CheckBox)sender).Checked)
             {
+                // Low satellite count
                 string speechstring = "0";
                 if (Settings.Instance["Protar_speechlowsatellitecount"] != null)
                     speechstring = Settings.Instance["Protar_speechlowsatellitecount"];
                 if (DialogResult.Cancel ==
                     InputBox.Show("Low satellite trigger", "What satellite count do you want to warn at (pcs)?", ref speechstring))
                     return;
+                // input check
                 if (int.TryParse(speechstring, out int number) && number >= 0)
                     Settings.Instance["Protar_speechlowsatellitecount"] = speechstring;
                 else
-                    Console.WriteLine("Invalid input for <Protar_speechlowsatellitecount>. Give a positive integer!");
+                    CustomMessageBox.Show("Invalid input for <Protar_speechlowsatellitecount>. Give a positive integer!");
 
+                // High HDOP
                 speechstring = "0";
                 if (Settings.Instance["Protar_speechlowhdoptrigger"] != null)
                     speechstring = Settings.Instance["Protar_speechlowhdoptrigger"];
                 if (DialogResult.Cancel ==
                     InputBox.Show("Low HDOP trigger", "What HDOP do you want to warn at (-)?", ref speechstring))
                     return;
-                
-
+                // input check
                 if (speechstring.Contains("."))
                 {
-                    Console.WriteLine("Invalid input, use comma as decimal separator.");
+                    CustomMessageBox.Show("Invalid input, use comma as decimal separator.");
                 }
-                else if (float.TryParse(speechstring, NumberStyles.Float, new CultureInfo("de-DE"), out float fnumber) && number >= 0.0)
+                else if (float.TryParse(speechstring, NumberStyles.Float, new CultureInfo("de-DE"), out float fnumber) && fnumber >= 0.0)
                 {
                     Settings.Instance["Protar_speechlowhdoptrigger"] = speechstring;
                 }
                 else
                 {
-                    Console.WriteLine("Invalid input for <Protar_speechlowhdoptrigger>. Give a positive float with comma as decimal separator!");
+                    CustomMessageBox.Show("Invalid input for < Protar_speechlowhdoptrigger >.Give a positive float with comma as decimal separator!");
                 }
             }
         }
-
-        #endregion
 
         private void CHK_PitotWarning_CheckedChanged(object sender, EventArgs e)
         {
@@ -1205,7 +1212,7 @@ namespace MissionPlanner.GCSViews.ConfigurationView
                 if (int.TryParse(speechstring, out number))
                     Settings.Instance["Protar_speechlowpitottemp"] = speechstring;
                 else
-                    Console.WriteLine("Invalid input for <Protar_speechlowpitottemp>. Give an integer!");
+                    CustomMessageBox.Show("Invalid input for <Protar_speechlowpitottemp>. Give an integer!");
 
                 // Pitot temp high trigger
                 speechstring = "0";
@@ -1217,8 +1224,41 @@ namespace MissionPlanner.GCSViews.ConfigurationView
                 if (int.TryParse(speechstring, out number))
                     Settings.Instance["Protar_speechhighpitottemp"] = speechstring;
                 else
-                    Console.WriteLine("Invalid input for <Protar_speechhighpitottemp>. Give an integer!");
+                    CustomMessageBox.Show("Invalid input for <Protar_speechhighpitottemp>. Give an integer!");
             }
         }
+
+        private void CHK_JoystickError_CheckedChanged(object sender, EventArgs e)
+        {
+            if (startup)
+                return;
+            Settings.Instance["Protar_speechjoystickdisabled"] = ((CheckBox)sender).Checked.ToString();
+
+            if (((CheckBox)sender).Checked)
+            {
+                // telemetry lost for more than X seconds
+                string speechstring = "0";
+                int number = new int();
+                if (Settings.Instance["Protar_speechnotelemetry"] != null)
+                    speechstring = Settings.Instance["Protar_speechnotelemetry"];
+                if (DialogResult.Cancel ==
+                    InputBox.Show("Lost telemetry trigger", "What time after do you want to warn at (sec)?", ref speechstring))
+                    return;
+                // input check
+                if (speechstring.Contains("."))
+                {
+                    CustomMessageBox.Show("Invalid input, use comma as decimal separator.");
+                }
+                else if (float.TryParse(speechstring, NumberStyles.Float, new CultureInfo("de-DE"), out float fnumber) && number >= 0.0)
+                {
+                    Settings.Instance["Protar_speechnotelemetry"] = speechstring;
+                }
+                else
+                {
+                    CustomMessageBox.Show("Invalid input for <Protar_speechnotelemetry>. Give a positive float with comma as decimal separator!");
+                }
+            }
+        }
+        #endregion
     }
 }

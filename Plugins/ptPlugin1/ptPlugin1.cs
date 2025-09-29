@@ -1721,6 +1721,14 @@ namespace ptPlugin1
 
         public void updateErrorSpeech()
         {
+            if (!_isSupervisor) 
+            {
+                if (Settings.Instance.GetBoolean("Protar_speechjoystickdisabled") && MainV2.joystick == null)
+                    Speaker.Instance.SpeakMessage($"Joystick not found.");
+                else if (Settings.Instance.GetBoolean("Protar_speechjoystickdisabled") && !MainV2.joystick.enabled)
+                    Speaker.Instance.SpeakMessage($"Joystick disabled.");
+            }
+
             foreach (var port in MainV2.Comports)
             {
                 #region Skip conditions
@@ -1740,6 +1748,26 @@ namespace ptPlugin1
                 #endregion
 
                 // ------------ Error handling -------------
+
+                #region Radio contact
+                if (!port.BaseStream.IsOpen)
+                {
+                    if (Settings.Instance.GetBoolean("Protar_speechjoystickdisabled"))
+                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} radio contact lost.");
+                    
+                    // Skip further checks for this port
+                    continue; 
+                }
+
+                if (Settings.Instance.GetBoolean("Protar_speechjoystickdisabled"))
+                {
+                    // Timeout-based check for silent link loss:
+                    float notelemetryseconds = Settings.Instance.GetFloat("Protar_speechnotelemetry");
+
+                    if ((DateTime.Now - port.MAV.lastvalidpacket).TotalSeconds > notelemetryseconds)
+                        Speaker.Instance.SpeakMessage($"Plane {port.sysidcurrent} telemetry lost for more than {notelemetryseconds} seconds.");
+                }
+                #endregion
 
                 #region Engine
                 if (Settings.Instance.GetBoolean("Protar_speechengineerrors"))

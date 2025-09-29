@@ -116,6 +116,7 @@
             this.CHK_VibrationWarning = new System.Windows.Forms.CheckBox();
             this.CHK_GPSWarning = new System.Windows.Forms.CheckBox();
             this.CHK_PitotWarning = new System.Windows.Forms.CheckBox();
+            this.CHK_JoystickError = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.NUM_tracklength)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.num_gcsid)).BeginInit();
             this.SuspendLayout();
@@ -815,9 +816,17 @@
             this.CHK_PitotWarning.UseVisualStyleBackColor = true;
             this.CHK_PitotWarning.CheckedChanged += new System.EventHandler(this.CHK_PitotWarning_CheckedChanged);
             // 
+            // CHK_JoystickError
+            // 
+            resources.ApplyResources(this.CHK_JoystickError, "CHK_JoystickError");
+            this.CHK_JoystickError.Name = "CHK_JoystickError";
+            this.CHK_JoystickError.UseVisualStyleBackColor = true;
+            this.CHK_JoystickError.CheckedChanged += new System.EventHandler(this.CHK_JoystickError_CheckedChanged);
+            // 
             // ConfigPlanner
             // 
             resources.ApplyResources(this, "$this");
+            this.Controls.Add(this.CHK_JoystickError);
             this.Controls.Add(this.CHK_PitotWarning);
             this.Controls.Add(this.CHK_GPSWarning);
             this.Controls.Add(this.CHK_VibrationWarning);
@@ -1003,5 +1012,6 @@
         private System.Windows.Forms.CheckBox CHK_VibrationWarning;
         private System.Windows.Forms.CheckBox CHK_GPSWarning;
         private System.Windows.Forms.CheckBox CHK_PitotWarning;
+        private System.Windows.Forms.CheckBox CHK_JoystickError;
     }
 }
