@@ -43,5 +43,12 @@ namespace MissionPlanner.Utilities
             x = Math.Min(x, out_max);
             return x;
         }
+
+        public static double normalizeAngle(double angle)
+        {
+            while (angle < 0) angle += 2.0 * Math.PI;
+            while (angle >= 2.0 * Math.PI) angle -= 2.0 * Math.PI;
+            return angle;
+        }
     }
 }

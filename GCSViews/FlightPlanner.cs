@@ -55,6 +55,10 @@ using DotSpatial.Topology;
 using Polygon = SharpKml.Dom.Polygon;
 using LineString = SharpKml.Dom.LineString;
 using Dowding.Model;
+using SharpDX.Mathematics.Interop;
+using static Community.CsharpSqlite.Sqlite3.WhereLevel._u;
+// using static Community.CsharpSqlite.Sqlite3;
+// using BruTile.Wms;
 
 namespace MissionPlanner.GCSViews
 {
@@ -8285,22 +8289,534 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
         }
 
 
+        // ==================== Helper functions for formation flight ====================
 
+        // Function to create a dense waypoint list
+        private static List<Locationwp> GenerateSmoothPath(List<Locationwp> originalWps,
+            double R_min,
+            double headingLimit
+            )
+        {
+            if (originalWps.Count < 2)
+                throw new ArgumentException("Need at least 2 waypoints for Catmull-Rom spline.");
+
+            // Pedding the original list by duplicating the fist and last element
+            // Without this the last segment of the spline would not be included into the spline generation because: int i = 0; i < originalWps.Count - 3; i++
+            List<Locationwp> padded = new List<Locationwp>();
+            padded.Add(originalWps[0]);                      // duplicate first
+            padded.AddRange(originalWps);
+            padded.Add(originalWps[originalWps.Count - 1]);  // duplicate last
+
+            double deltaS = R_min * headingLimit;                    // step distance
+
+            List<Locationwp> denseWps = new List<Locationwp>();
+
+            for (int i = 0; i < padded.Count - 3; i++)
+            {
+                Locationwp p0 = padded[i];
+                Locationwp p1 = padded[i + 1];
+                Locationwp p2 = padded[i + 2];
+                Locationwp p3 = padded[i + 3];
+
+                // Get approximate segment length to decide sample count
+                // double segLength = ComputeDistance(p1, p2);
+                // Choose sample count (denser sampling)
+                // int samples = Math.Max((int)Math.Ceiling(segLength / spacingMeters) + 1, 4);
+                // int samples = (int)Math.Ceiling(segLength / spacingMeters);
+
+                double heading1 = ComputeHeading(p1, p2);
+                double heading2 = ComputeHeading(p2, p3);
+                double angleDiff = Math.Abs(heading2 - heading1);
+                if (angleDiff > Math.PI)
+                    angleDiff = 2 * Math.PI - angleDiff;
+
+                int samples = (int)Math.Ceiling(angleDiff / (Math.PI / 18)); // 1 sample every ~10° // tweak denominator for density
+
+                if (samples < 1)
+                    samples = 1;  // just the original point
+
+                for (int j = 0; j <= samples; j++)
+                {
+                    // Skip the first point (t=0) except for the very first segment
+                    if (i > 0 && j == 0)
+                        continue;
+
+                    double t = (double)j / samples;
+                    Locationwp interpolated = CatmullRomInterpolate(p0, p1, p2, p3, t);
+                    denseWps.Add(interpolated);
+                }
+            }
+
+            // Ensure the last waypoints are added
+            //denseWps.Add(originalWps[originalWps.Count - 2]);
+            //denseWps.Add(originalWps[originalWps.Count - 1]);
+
+            return denseWps;
+        }
+
+        private static List<Locationwp> GenerateCurvatureAdaptiveSpline(
+            List<Locationwp> originalWps,
+            double baseSpacing,        // base spacing for "flat" segments
+            double curvatureFactor // how much to reduce spacing on sharp turns
+            )
+        {
+            if (originalWps.Count < 4)
+                throw new ArgumentException("Need at least 4 waypoints for Catmull-Rom spline.");
+
+            // Pad the list for spline endpoints
+            List<Locationwp> padded = new List<Locationwp> { originalWps[0] };
+            padded.AddRange(originalWps);
+            padded.Add(originalWps[originalWps.Count - 1]);
+
+            List<Locationwp> denseWps = new List<Locationwp>();
+            denseWps.Add(originalWps[0]); // start with the first point
+
+            double tStep = 0.05; // initial fine sampling step
+            Locationwp lastAdded = originalWps[0];
+
+            for (int i = 0; i < padded.Count - 3; i++)
+            {
+                for (double t = 0; t <= 1.0; t += tStep)
+                {
+                    Locationwp point = CatmullRomInterpolate(padded[i], padded[i + 1], padded[i + 2], padded[i + 3], t);
+
+                    // Compute local curvature
+                    double headingPrev = ComputeHeading(lastAdded, point); // your ComputeHeading
+                                                                           // lookahead: small t offset ahead to estimate curvature
+                    double tLookahead = Math.Min(t + tStep, 1.0);
+                    Locationwp pointAhead = CatmullRomInterpolate(padded[i], padded[i + 1], padded[i + 2], padded[i + 3], tLookahead);
+                    double headingAhead = ComputeHeading(point, pointAhead);
+
+                    double deltaHeading = Math.Abs(NormalizeAngle(headingAhead - headingPrev)); // radians
+                    double distance = ComputeDistance(lastAdded, point);
+
+                    // Adaptive spacing: sharper turns → smaller spacing
+                    double localSpacing = baseSpacing / (1.0 + curvatureFactor * deltaHeading);
+
+                    if (distance >= localSpacing)
+                    {
+                        denseWps.Add(point);
+                        lastAdded = point;
+                    }
+                }
+            }
+
+            // Ensure last original waypoint is added
+            denseWps.Add(originalWps[originalWps.Count - 1]);
+            return denseWps;
+        }
+
+        private static List<Locationwp> GenerateSplineByHeadingLimit2(
+    List<Locationwp> originalWps,
+    double R_min,          // minimum turning radius (m)
+    double headingLimitDeg // max heading change per wp (degrees)
+)
+        {
+            if (originalWps.Count < 4)
+                throw new ArgumentException("Need at least 4 waypoints for Catmull-Rom spline.");
+
+            double headingLimit = headingLimitDeg * Math.PI / 180.0; // convert to radians
+            double deltaS = R_min * headingLimit;                    // min resolution step
+            double maxSpacingMeters = 500;                           // force waypoint every X m
+
+            // --- Pre-filter input to avoid too-close points ---
+            List<Locationwp> filteredInput = new List<Locationwp>();
+            filteredInput.Add(originalWps[0]);
+            Locationwp lastKeep = originalWps[0];
+            foreach (var wp in originalWps)
+            {
+                if (ComputeDistance(lastKeep, wp) >= deltaS)
+                {
+                    filteredInput.Add(wp);
+                    lastKeep = wp;
+                }
+            }
+            if (ComputeDistance(filteredInput.Last(), originalWps.Last()) > 1e-3)
+                filteredInput.Add(originalWps.Last());
+
+            // --- Pad list ---
+            List<Locationwp> padded = new List<Locationwp> { filteredInput[0] };
+            padded.AddRange(filteredInput);
+            padded.Add(filteredInput[filteredInput.Count - 1]);
+
+            // --- Spline generation ---
+            List<Locationwp> denseWps = new List<Locationwp> { filteredInput[0] };
+            Locationwp lastAdded = filteredInput[0];
+            double lastHeading = ComputeHeading(filteredInput[0], filteredInput[1]);
+
+            for (int i = 0; i < padded.Count - 3; i++)
+            {
+                double totalLength = ComputeDistance(padded[i + 1], padded[i + 2]);
+                if (totalLength < deltaS) continue; // skip degenerate segments
+
+                double t = 0.0;
+                while (t <= 1.0)
+                {
+                    Locationwp point = CatmullRomInterpolate(padded[i], padded[i + 1], padded[i + 2], padded[i + 3], t);
+
+                    double tLookahead = Math.Min(t + deltaS / totalLength, 1.0);
+                    Locationwp pointAhead = CatmullRomInterpolate(padded[i], padded[i + 1], padded[i + 2], padded[i + 3], tLookahead);
+                    double headingAhead = ComputeHeading(point, pointAhead);
+
+                    double deltaHeading = Math.Abs(NormalizeAngle(headingAhead - lastHeading));
+                    double distance = ComputeDistance(lastAdded, point);
+
+                    if (distance >= maxSpacingMeters || deltaHeading >= headingLimit)
+                    {
+                        denseWps.Add(point);
+                        lastAdded = point;
+                        lastHeading = headingAhead;
+                    }
+
+                    t += deltaS / totalLength;
+                }
+            }
+
+            denseWps.Add(filteredInput.Last());
+            return denseWps;
+        }
+
+        private static List<Locationwp> GenerateSplineByHeadingLimit(
+            List<Locationwp> originalWps,
+            double R_min,          // minimum turning radius (m)
+            double headingLimitDeg // max heading change per wp (degrees)
+            
+        )
+        {
+            if (originalWps.Count < 4)
+                throw new ArgumentException("Need at least 4 waypoints for Catmull-Rom spline.");
+
+            double headingLimit = headingLimitDeg * Math.PI / 180.0; // convert to radians
+            double deltaS = R_min * headingLimit;                    // step distance
+            double maxSpacingMeters = 500; // force a wp every X meters (e.g. 500m)
+
+            //// --- Pre-filter input to avoid too-close points ---
+            List<Locationwp> filteredInput = originalWps;//new List<Locationwp>();
+            //filteredInput.Add(originalWps[0]);
+            //Locationwp lastKeep = originalWps[0];
+            //foreach (var wp in originalWps)
+            //{
+            //    if (ComputeDistance(lastKeep, wp) >= deltaS)
+            //    {
+            //        filteredInput.Add(wp);
+            //        lastKeep = wp;
+            //    }
+            //}
+            //if (ComputeDistance(filteredInput.Last(), originalWps.Last()) > 1e-3)
+            //    filteredInput.Add(originalWps.Last());
+
+            // Pad the list
+            List<Locationwp> padded = new List<Locationwp> { originalWps[0] };
+            padded.AddRange(originalWps);
+            padded.Add(originalWps.Last());//originalWps[originalWps.Count - 1]);
+
+            // Spline generation
+            List<Locationwp> denseWps = new List<Locationwp>();
+            denseWps.Add(originalWps[0]);
+            Locationwp lastAdded = originalWps[0];//originalWps[0];
+
+            // Initialize heading for first segment
+            double lastHeading = ComputeHeading(originalWps[0], originalWps[1]);//ComputeHeading(originalWps[0], originalWps[1]);
+
+
+            // Loop over segments
+            for (int i = 0; i < padded.Count - 3; i++)
+            {
+                // Calculate distance between the two endpoints of the current segment
+                double totalLength = ComputeDistance(padded[i + 1], padded[i + 2]); // rough estimate basically we're observing i, i+1, i+2, i+3 -> i+1 stays the last edded point if the current observed segment is too small
+                // Parameter indicates where we are in the segment 0: at the beginning, 1: at the end
+                if (totalLength <= deltaS)
+                {
+                    continue;
+                }
+
+                double t = 0.0;
+
+                // Iterate through the current segment
+                while (t <= 1.0)
+                {
+                    // Calculate spline
+                    Locationwp point = CatmullRomInterpolate(padded[i], padded[i + 1], padded[i + 2], padded[i + 3], t);
+
+                    // lookahead: small t offset ahead to estimate curvature
+                    // resolution should 4 times bigger than the min sufficient resolution (deltaS/totalLength) -> works well with 4, can be changed
+                    double tLookahead = Math.Min(t + deltaS / (totalLength), 1.0); 
+                    Locationwp pointAhead = CatmullRomInterpolate(padded[i], padded[i + 1], padded[i + 2], padded[i + 3], tLookahead);
+                    double headingAhead = ComputeHeading(point, pointAhead);
+
+                    double deltaHeading = Math.Abs(NormalizeAngle(headingAhead - lastHeading)); // radians
+                    double distance = ComputeDistance(lastAdded, point);
+
+                    //if (distance >= deltaS)
+                    //{
+                        //double headingDiff = Math.Abs(NormalizeAngle(ComputeHeading(lastAdded, point) - ComputeHeading(lastAdded, lastAdded)));
+                    //if (deltaHeading >= headingLimit)
+                    //{
+                    //    System.Diagnostics.Debug.WriteLine($"deltaHeading={deltaHeading}={deltaHeading * 180 / Math.PI:F2} deg, heading limit: {headingLimit} add waypoint");
+                    //    denseWps.Add(point);
+                    //    lastAdded = point;
+                    //}
+
+                    if (distance >= maxSpacingMeters || deltaHeading >= headingLimit)
+                    {
+                        denseWps.Add(point);
+                        lastAdded = point;
+                        lastHeading = headingAhead; // update heading when a new wp is added
+                    }
+                    //}
+                    System.Diagnostics.Debug.WriteLine($"deltaHeading={deltaHeading}={deltaHeading * 180 / Math.PI:F2} deg, heading limit: {headingLimit} add waypoint, T = {t}");
+                    // Advance t proportionally to deltaS (roughly)
+                    t += deltaS / (totalLength);
+                    // if next step would overshoot too much, break early
+                    if (1.0 - t < (deltaS / totalLength) * 0.75)
+                        break;
+                }
+            }
+
+            denseWps.Add(originalWps.Last());
+            return denseWps;
+        }
+
+        // Normalize angle to [-π, π]
+        private static double NormalizeAngle(double angle)
+        {
+            while (angle > Math.PI) angle -= 2 * Math.PI;
+            while (angle < -Math.PI) angle += 2 * Math.PI;
+            return angle;
+        }
+
+        // ----------------------------------------------
+        // Catmull–Rom Spline Interpolation
+        // ----------------------------------------------
+        private static Locationwp CatmullRomInterpolate(Locationwp p0, Locationwp p1, Locationwp p2, Locationwp p3, double t)
+        {
+            double t2 = t * t;
+            double t3 = t2 * t;
+
+            // Interpolation in latitude
+            double lat = 0.5 * ((2 * p1.lat) +
+                                (-p0.lat + p2.lat) * t +
+                                (2 * p0.lat - 5 * p1.lat + 4 * p2.lat - p3.lat) * t2 +
+                                (-p0.lat + 3 * p1.lat - 3 * p2.lat + p3.lat) * t3);
+
+            // Interpolation in longitude
+            double lng = 0.5 * ((2 * p1.lng) +
+                                (-p0.lng + p2.lng) * t +
+                                (2 * p0.lng - 5 * p1.lng + 4 * p2.lng - p3.lng) * t2 +
+                                (-p0.lng + 3 * p1.lng - 3 * p2.lng + p3.lng) * t3);
+
+            // Interpolation in altitude (if needed)
+            double alt = 0.5 * ((2 * p1.alt) +
+                                (-p0.alt + p2.alt) * t +
+                                (2 * p0.alt - 5 * p1.alt + 4 * p2.alt - p3.alt) * t2 +
+                                (-p0.alt + 3 * p1.alt - 3 * p2.alt + p3.alt) * t3);
+
+            return new Locationwp { lat = lat, lng = lng, alt = (float)alt };
+        }
+
+        // Compute azimuth/heading from point A to point B (radians)
+        private static double ComputeHeading(Locationwp A, Locationwp B)
+        {
+            double lat1 = MathHelper.deg2rad * A.lat;
+            double lon1 = MathHelper.deg2rad * A.lng;
+            double lat2 = MathHelper.deg2rad * B.lat;
+            double lon2 = MathHelper.deg2rad * B.lng;
+
+            double dLon = lon2 - lon1;
+            double y = Math.Sin(dLon) * Math.Cos(lat2);
+            double x = Math.Cos(lat1) * Math.Sin(lat2) - Math.Sin(lat1) * Math.Cos(lat2) * Math.Cos(dLon);
+            double heading = Math.Atan2(y, x);
+            return MathHelper.normalizeAngle(heading); // radians [0, 2π)
+        }
+
+        // Compute horizontal distance between two waypoints (meters)
+        private static double ComputeDistance(Locationwp A, Locationwp B)
+        {
+            double R = 6371000.0; // Earth radius in meters
+            double dLat = MathHelper.deg2rad * (B.lat - A.lat);
+            double dLon = MathHelper.deg2rad * (B.lng - A.lng);
+
+            double lat1 = MathHelper.deg2rad * (A.lat);
+            double lat2 = MathHelper.deg2rad * (B.lat);
+
+            double a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                       Math.Cos(lat1) * Math.Cos(lat2) *
+                       Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+
+            double c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            return R * c;
+        }
+
+        public void AddSplineAsTimedWPs(List<Locationwp> denseWps, int speed)
+        {
+            for (int i = 0; i < denseWps.Count; i++)
+            {
+                var wp = denseWps[i];
+
+                if (i == 0)
+                {
+                    // First point must be a plain waypoint, not a timed WP
+                    int row = Commands.Rows.Add();
+                    Commands.Rows[row].Cells[Command.Index].Value = MAVLink.MAV_CMD.WAYPOINT.ToString();
+                    ChangeColumnHeader(MAVLink.MAV_CMD.WAYPOINT.ToString());
+                    setfromMap(wp.lat, wp.lng, (int)float.Parse(TXT_DefaultAlt.Text));
+                }
+                else
+                {
+                    // All others are timed waypoints
+                    addTimedWP(wp.lat, wp.lng, speed);
+                }
+            }
+        }
+
+
+        // ==================== Flyability Check ====================
+        // Checks if the given waypoint list is flyable for a plane with turn radius rMin
+        private bool IsPathFlyable(List<Locationwp> wplist, double rMin)
+        {
+            if (wplist.Count < 2)
+                return true; // nothing to check
+
+            // HEading between the first 2 points (0. and 2. in the list; 1. element is a DO_SEND_SCRIPT_MESSAGE)
+            double prevExitHeading = ComputeHeading(wplist[0], wplist[2]);
+
+            // Starting from index 2 (skip base point (not timed wp) and DO_SEND_SCRIPT_MESSAGE)
+            for (int i = 2; i < wplist.Count - 1; i++)
+            {
+                if (wplist[i - 1].id == (ushort)MAVLink.MAV_CMD.DO_SEND_SCRIPT_MESSAGE)
+                {
+                    var B = wplist[i];
+                    var C = wplist[i + 2];
+
+                    double BCHeading = ComputeHeading(B, C);
+
+                    double phi = Math.Abs(MathHelper.normalizeAngle(BCHeading - prevExitHeading));
+
+                    // Make phi always <= π
+                    if (phi > Math.PI) phi = 2.0 * Math.PI - phi;
+
+                    double distanceBC = ComputeDistance(B, C);
+
+                    double D_maneuver = 2.0 * rMin * Math.Sin(phi); // chord length formula
+
+                    if (distanceBC < D_maneuver)
+                    {
+                        // Segment not flyable
+                        //CustomMessageBox.Show($"distanceBC:{distanceBC}, D_maneuver: {D_maneuver}, BCHeading: {BCHeading}, prevExitHeading: {prevExitHeading}");
+                        return false;
+                    }
+
+                    // Update exit heading for next segment
+                    prevExitHeading = BCHeading;
+                }
+            }
+
+            return true;
+        }
+
+        private double GetMinRadius(List<Locationwp> wpList)
+        {
+            double minR = double.MaxValue;
+            for (int i = 1; i < wpList.Count - 1; i++)
+            {
+                PointLatLngAlt a = new PointLatLngAlt(wpList[i - 1].lat, wpList[i - 1].lng, wpList[i - 1].alt);
+                PointLatLngAlt b = new PointLatLngAlt(wpList[i].lat, wpList[i].lng, wpList[i].alt);
+                PointLatLngAlt c = new PointLatLngAlt(wpList[i + 1].lat, wpList[i + 1].lng, wpList[i + 1].alt);
+
+                double d1 = a.GetDistance(b);
+                double d2 = b.GetDistance(c);
+                double d3 = a.GetDistance(c);
+
+                double s = (d1 + d2 + d3) / 2;
+                double area = Math.Sqrt(s * (s - d1) * (s - d2) * (s - d3));
+
+                if (area <= 0) continue; // collinear, skip
+
+                double r = (d1 * d2 * d3) / (4 * area);
+                if (r < minR) minR = r;
+            }
+            return minR;
+        }
+
+        private static List<Locationwp> FilterSparse(List<Locationwp> wps, double minSpacing)
+        {
+            if (wps.Count == 0) return new List<Locationwp>();
+
+            List<Locationwp> filtered = new List<Locationwp>();
+            filtered.Add(wps[0]); // always keep first timed wp, the first one is not timed!
+            Locationwp last = wps[0];
+
+            for (int i = 1; i < wps.Count; i++)
+            {
+                var wp = wps[i];
+                if (ComputeDistance(last, wp) >= minSpacing)
+                {
+                    filtered.Add(wp);
+                    last = wp;
+                }
+            }
+
+            // always keep last if it's not already added
+            // isWPTheSame (Locationwp a, Locationwp b) should be implemented to Locationwp.cs
+            Locationwp lastOriginal = wps[wps.Count - 1];
+            if (ComputeDistance(filtered[filtered.Count - 1], lastOriginal) > 1e-3)
+            {
+                filtered.Add(lastOriginal);
+            }
+            return filtered;
+        }
+
+        // Get Separation Distances from config
+        private int _horizontalMinDistance;
+        private string _horizontalMinDistanceKey = "Protar_Formation_HorMinDist";
+
+        private int _verticalMinDistance;
+        private string _verticalMinDistanceKey = "Protar_Formation_VerMinDist";
+
+        private int _minimumTurningRadius;
+        private string _minimumTurningRadiusKey = "Protar_Formation_MinTurnRadius";
+
+        // Default values for separation
+        const int MIN_HORIZONTAL_DISTANCE = 20; // Minimum horizontal separation in meters
+        const int MIN_VERTICAL_DISTANCE = 10;   // Minimum vertical separation in meters
+        const int DEFAULT_MIN_TURN_RADIUS = 300;       // in meters
 
         private void bGenerateFormation_Click(object sender, EventArgs e)
         {
+            // Get separation limits from config
+            _horizontalMinDistance = Settings.Instance.GetInt32(_horizontalMinDistanceKey, MIN_HORIZONTAL_DISTANCE);
+            Settings.Instance[_horizontalMinDistanceKey] = _horizontalMinDistance.ToString();
+
+            _verticalMinDistance = Settings.Instance.GetInt32(_verticalMinDistanceKey, MIN_VERTICAL_DISTANCE);
+            Settings.Instance[_verticalMinDistanceKey] = _verticalMinDistance.ToString();
+
+            _minimumTurningRadius = Settings.Instance.GetInt32(_minimumTurningRadiusKey, DEFAULT_MIN_TURN_RADIUS);
+            Settings.Instance[_minimumTurningRadiusKey] = _minimumTurningRadius.ToString();
 
             if (Commands.Rows.Count < 3) return;
 
-            int xOffset = 0;
-            int yOffset = 0;
-            int zOffset = 0;
+            int xOffset1Value = 0;
+            int yOffset1Value = 0;
+            int zOffset1Value = 0;
 
-            Int32.TryParse(xOffset1.Text, out xOffset);
-            Int32.TryParse(yOffset1.Text, out yOffset);
-            Int32.TryParse(zOffset1.Text, out zOffset);
+            // Retrieves user-input offsets for the first follower vehicle from text fields
+            Int32.TryParse(xOffset1.Text, out xOffset1Value);
+            Int32.TryParse(yOffset1.Text, out yOffset1Value);
+            Int32.TryParse(zOffset1.Text, out zOffset1Value);
 
             //Todo: do checks for integrity
+            // Check integrity for follower 1: Ensure safe horizontal and vertical distances
+            double horizontalDistance = Math.Sqrt(xOffset1Value * xOffset1Value + yOffset1Value * yOffset1Value);
+            if (horizontalDistance < _horizontalMinDistance)
+            {
+                CustomMessageBox.Show($"Horizontal offset must be at least {_horizontalMinDistance} meters for safety.");
+                return;
+            }
+            if (Math.Abs(zOffset1Value) < _verticalMinDistance)
+            {
+                CustomMessageBox.Show($"Vertical offset must be at least {_verticalMinDistance} meters (absolute value) for safety.");
+                return;
+            }
 
             if (getSysIdIndex(currentSysId) != 0)
             {
@@ -8314,9 +8830,62 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                 return;
             }
 
-            //Save current setup
+            //double spacing = double.Parse(TXT_Spacing.Text);//400.0; // meters between points
+            double spacing = 200; // default spacing in meters
+            double curvatureFactor = 10; // increase for more density on sharp turns
+
+            // Try to parse from the textbox
+            if (!double.TryParse(TXT_Spacing.Text, out spacing))
+            {
+                MessageBox.Show("Invalid spacing value. Using default 200 meters.");
+                spacing = 200.0;
+            }
+
+            // Try to parse from the textbox
+            if (!double.TryParse(TXT_Curvature.Text, out curvatureFactor))
+            {
+                MessageBox.Show("Invalid curvature value. Using default 10.");
+                curvatureFactor = 10;
+            }
+
+            // Define resolution
+            double deltaS = 52;//spacing * curvatureFactor;
+
+
+            //Save current leader setup
+            List<Locationwp> originallist = GetCommandList();
+            CustomMessageBox.Show($"Original:{originallist.Count}");
+
+            List<Locationwp> leaderWaypointsOnly = new List<Locationwp>();
+            foreach (var loc in originallist)
+            {
+                if (loc.id == (ushort)MAVLink.MAV_CMD.WAYPOINT)
+                    leaderWaypointsOnly.Add(loc);
+            }
+            CustomMessageBox.Show($"leaderWaypointsOnly:{leaderWaypointsOnly.Count}");
+
+            List<Locationwp> filteredlist = FilterSparse(leaderWaypointsOnly, deltaS);
+
+            List<Locationwp> splinelist = GenerateSplineByHeadingLimit(filteredlist, spacing, curvatureFactor);
+            CustomMessageBox.Show($"sourcelist:{splinelist.Count}");
+
+            // Delete the old command list 
+            Commands.Rows.Clear();
+
+            // Add the new points (timed WPs) to the command list
+            AddSplineAsTimedWPs(splinelist, speed: 70);
+
+            // Source the new command list
             List<Locationwp> sourcelist = GetCommandList();
 
+            // --- Step 1: Flyability check for the leader ---
+            if (!IsPathFlyable(sourcelist, _minimumTurningRadius))
+            {
+                CustomMessageBox.Show($"Leader path is not flyable. Adjust waypoints. Minimum turning radius: {_minimumTurningRadius}");
+                //return;
+            }
+
+            // --- Step 2: Generate follower 1 waypoints with offsets ---
             //clear wplists[1]
             wplists[1].Clear();
             for (int i = 0; i < sourcelist.Count; i++)
@@ -8332,10 +8901,10 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                         c.Lng = loc.lng;
                         c.Alt = loc.alt;
                         double azimuth = loc.Az;
-                        double distance = Math.Sqrt(xOffset * xOffset + yOffset * yOffset);
-                        double angle = (MathHelper.rad2deg * Math.Atan2(xOffset, yOffset));
+                        double distance = Math.Sqrt(xOffset1Value * xOffset1Value + yOffset1Value * yOffset1Value);
+                        double angle = (MathHelper.rad2deg * Math.Atan2(xOffset1Value, yOffset1Value));
                         PointLatLngAlt newPoint = c.newpos(azimuth - angle, distance);
-                        newPoint.Alt = c.Alt + zOffset;
+                        newPoint.Alt = c.Alt + zOffset1Value;
                         loc.lat = newPoint.Lat;
                         loc.lng = newPoint.Lng;
                         loc.alt = (float)newPoint.Alt;
@@ -8356,19 +8925,59 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                     wplists[1].Add(loc);
                 }
             }
+
+            // Flyability check for follower 1
+            if (!IsPathFlyable(wplists[1], _minimumTurningRadius))
+            {
+                CustomMessageBox.Show("Follower 1 path is not flyable with the given offsets.");
+                //return;
+            }
+
             writeKML();
 
 
             if (vehicleIdList[2] > 0)
             {
 
-                xOffset = 0;
-                yOffset = 0;
-                zOffset = 0;
+                int xOffset2Value = 0;
+                int yOffset2Value = 0;
+                int zOffset2Value = 0;
 
-                Int32.TryParse(xOffset2.Text, out xOffset);
-                Int32.TryParse(yOffset2.Text, out yOffset);
-                Int32.TryParse(zOffset2.Text, out zOffset);
+                Int32.TryParse(xOffset2.Text, out xOffset2Value);
+                Int32.TryParse(yOffset2.Text, out yOffset2Value);
+                Int32.TryParse(zOffset2.Text, out zOffset2Value);
+
+                // Check integrity for second follower vs lead: Ensure safe horizontal and vertical distances
+                double horizontalDistance2 = Math.Sqrt(xOffset2Value * xOffset2Value + yOffset2Value * yOffset2Value);
+                if (horizontalDistance2 < _horizontalMinDistance)
+                {
+                    CustomMessageBox.Show($"Horizontal offset for second follower must be at least {_horizontalMinDistance} meters for safety.");
+                    return;
+                }
+                if (Math.Abs(zOffset2Value) < _verticalMinDistance)
+                {
+                    CustomMessageBox.Show($"Vertical offset for second follower must be at least {_verticalMinDistance} meters (absolute value) for safety.");
+                    return;
+                }
+
+                // Check distance between the two followers: Ensure safe horizontal and vertical separation
+                double horizontalBetweenFollowers = Math.Sqrt(
+                    (xOffset2Value - xOffset1Value) * (xOffset2Value - xOffset1Value) +
+                    (yOffset2Value - yOffset1Value) * (yOffset2Value - yOffset1Value)
+                );
+                if (horizontalBetweenFollowers < _horizontalMinDistance)
+                {
+                    CustomMessageBox.Show($"Horizontal distance between the two followers must be at least {_horizontalMinDistance} meters for safety.");
+                    return;
+                }
+                double verticalBetweenFollowers = Math.Abs(zOffset2Value - zOffset1Value);
+                if (verticalBetweenFollowers < _verticalMinDistance)
+                {
+                    CustomMessageBox.Show($"Vertical distance between the two followers must be at least {_verticalMinDistance} meters (absolute value) for safety.");
+                    return;
+                }
+
+                // --- Step 3: Generate follower 2 waypoints with offsets ---
 
                 wplists[2].Clear();
                 for (int i = 0; i < sourcelist.Count; i++)
@@ -8378,16 +8987,15 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                     {
                         if (sourcelist[i - 1].id == (ushort)MAVLink.MAV_CMD.DO_SEND_SCRIPT_MESSAGE)
                         {
-
                             PointLatLngAlt c = new PointLatLngAlt();
                             c.Lat = loc.lat;
                             c.Lng = loc.lng;
                             c.Alt = loc.alt;
                             double azimuth = loc.Az;
-                            double distance = Math.Sqrt(xOffset * xOffset + yOffset * yOffset);
-                            double angle = (MathHelper.rad2deg * Math.Atan2(xOffset, yOffset));
+                            double distance = Math.Sqrt(xOffset2Value * xOffset2Value + yOffset2Value * yOffset2Value);
+                            double angle = (MathHelper.rad2deg * Math.Atan2(xOffset2Value, yOffset2Value));
                             PointLatLngAlt newPoint = c.newpos(azimuth - angle, distance);
-                            newPoint.Alt = c.Alt + zOffset;
+                            newPoint.Alt = c.Alt + zOffset2Value;
                             loc.lat = newPoint.Lat;
                             loc.lng = newPoint.Lng;
                             loc.alt = (float)newPoint.Alt;
@@ -8408,7 +9016,16 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                         wplists[2].Add(loc);
                     }
                 }
+
+                // Flyability check for follower 2
+                if (!IsPathFlyable(wplists[2], _minimumTurningRadius))
+                {
+                    CustomMessageBox.Show("Follower 2 path is not flyable with the given offsets.");
+                    //return;
+                }
+
                 writeKML();
+
             }
 
             updatealltime();
@@ -8471,11 +9088,33 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                             l.p2 = (float)time;
                             wplists[2][i] = l;
                         }
-
                     }
                 }
             }
             updatealltime();
+        }
+
+        private void LBL_Spacing_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void TXT_Spacing_TextChanged(object sender, EventArgs e)
+        {
+            //double value;
+            //if (!double.TryParse(TXT_Spacing.Text, out value))
+            //{
+            //    TXT_Spacing.BackColor = Color.LightPink; // indicate invalid input
+            //}
+            //else
+            //{
+            //    TXT_Spacing.BackColor = Color.White; // valid input
+            //}
+
+        }
+
+        private void TXT_Curvature_TextChanged(object sender, EventArgs e)
+        {
 
         }
     }
