@@ -35,10 +35,10 @@ namespace ptPlugin1
 
             foreach (var item in new VerticalProgressBar2[] { ekfvel, ekfposh, ekfposv, ekfcompass, ekfterrain })
             {
-                if (item.Value > 50)
+                if (item.Value > ptPlugin1.EKF_VARIANCE_HIGH)
                     item.ValueColor = Color.Orange;
 
-                if (item.Value > 80)
+                if (item.Value > ptPlugin1.EKF_VARIANCE_CRITICAL)
                     item.ValueColor = Color.Red;
             }
 

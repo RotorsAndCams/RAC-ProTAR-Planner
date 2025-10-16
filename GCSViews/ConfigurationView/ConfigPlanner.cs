@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 using WebCamService;
+using static MissionPlanner.Utilities.LTM;
 
 namespace MissionPlanner.GCSViews.ConfigurationView
 {
@@ -138,6 +139,19 @@ namespace MissionPlanner.GCSViews.ConfigurationView
             SetCheckboxFromConfig("Params_BG", CHK_params_bg);
             SetCheckboxFromConfig("SlowMachine", chk_slowMachine);
             SetCheckboxFromConfig("speech_armed_only", CHK_speechArmedOnly);
+            // Protar specific setup speech states
+            SetCheckboxFromConfig("Protar_speechlandingerror", CHK_LandingErrors);
+            SetCheckboxFromConfig("Protar_speechfleetsetuperror", CHK_FleetSetupErrors);
+            SetCheckboxFromConfig("Protar_speechmavlinkerrormsgs", CHK_MavlinkErrorMsgs);
+            SetCheckboxFromConfig("Protar_speechengineerrors", CHK_EngineErrors);
+            SetCheckboxFromConfig("Protar_speechlowfuel", CHK_FuelWarning);
+            SetCheckboxFromConfig("Protar_speechlowlinkquality", CHK_CommWarning);
+            SetCheckboxFromConfig("Protar_speechekf", CHK_ekfWarning);
+            SetCheckboxFromConfig("Protar_speechvibration", CHK_VibrationWarning);
+            SetCheckboxFromConfig("Protar_speechgps", CHK_GPSWarning);
+            SetCheckboxFromConfig("Protar_speechpitot", CHK_PitotWarning);
+            SetCheckboxFromConfig("Protar_speechjoystickdisabled", CHK_JoystickError);
+
 
             // this can't fail because it set at startup
             NUM_tracklength.Value = Settings.Instance.GetInt32("NUM_tracklength", 200);
@@ -349,6 +363,18 @@ namespace MissionPlanner.GCSViews.ConfigurationView
                 CHK_speechmode.Visible = true;
                 CHK_speecharmdisarm.Visible = true;
                 CHK_speechlowspeed.Visible = true;
+                // protar specific
+                CHK_LandingErrors.Visible = true;
+                CHK_FleetSetupErrors.Visible = true;
+                CHK_MavlinkErrorMsgs.Visible = true;
+                CHK_EngineErrors.Visible = true;
+                CHK_FuelWarning.Visible = true;
+                CHK_CommWarning.Visible = true;
+                CHK_ekfWarning.Visible = true;
+                CHK_VibrationWarning.Visible = true;
+                CHK_GPSWarning.Visible = true;
+                CHK_PitotWarning.Visible = true;
+                CHK_JoystickError.Visible = true;  
             }
             else
             {
@@ -360,6 +386,18 @@ namespace MissionPlanner.GCSViews.ConfigurationView
                 CHK_speechmode.Visible = false;
                 CHK_speecharmdisarm.Visible = false;
                 CHK_speechlowspeed.Visible = false;
+                // protar specific
+                CHK_LandingErrors.Visible = false;
+                CHK_FleetSetupErrors.Visible = false;
+                CHK_MavlinkErrorMsgs.Visible = false;
+                CHK_EngineErrors.Visible = false;
+                CHK_FuelWarning.Visible = false;
+                CHK_CommWarning.Visible = false;
+                CHK_ekfWarning.Visible = false;
+                CHK_VibrationWarning.Visible = false;
+                CHK_GPSWarning.Visible = false;
+                CHK_PitotWarning.Visible = false;
+                CHK_JoystickError.Visible = false;
             }
         }
 
@@ -997,5 +1035,230 @@ namespace MissionPlanner.GCSViews.ConfigurationView
             MainV2.speech_armed_only = CHK_speechArmedOnly.Checked;
             Settings.Instance["speech_armed_only"] = CHK_speechArmedOnly.Checked.ToString();
         }
+
+        #region ProTAR Speech
+        private void CHK_LandingErrors_CheckedChanged(object sender, EventArgs e)
+        {
+            if (startup)
+                return;
+            Settings.Instance["Protar_speechlandingerror"] = ((CheckBox)sender).Checked.ToString();
+        }
+
+        private void CHK_FleetSetupErrors_CheckedChanged(object sender, EventArgs e)
+        {
+            if (startup)
+                return;
+            Settings.Instance["Protar_speechfleetsetuperror"] = ((CheckBox)sender).Checked.ToString();
+        }
+
+        private void CHK_MavlinkErrorMsgs_CheckedChanged(object sender, EventArgs e)
+        {
+            if (startup)
+                return;
+            Settings.Instance["Protar_speechmavlinkerrormsgs"] = ((CheckBox)sender).Checked.ToString();
+        }
+
+        private void CHK_EngineErrors_CheckedChanged(object sender, EventArgs e) // TODO: continue here
+        {
+            if (startup)
+                return;
+            Settings.Instance["Protar_speechengineerrors"] = ((CheckBox)sender).Checked.ToString();
+
+            if (((CheckBox)sender).Checked)
+            {
+                // RPM low
+                string speechstring = "0";
+                if (Settings.Instance["Protar_speechlowrpmtrigger"] != null)
+                    speechstring = Settings.Instance["Protar_speechlowrpmtrigger"];
+                if (DialogResult.Cancel ==
+                    InputBox.Show("Low engine RPM trigger", "What RPM do you want to warn at (1/min)?", ref speechstring))
+                    return;
+                if (int.TryParse(speechstring, out int number) && number >= 0)
+                    Settings.Instance["Protar_speechlowrpmtrigger"] = speechstring;
+                else
+                    CustomMessageBox.Show("Invalid input for <Protar_speechlowrpmtrigger>. Give a positive integer!");
+
+                // EGT high
+                speechstring = "0";
+                if (Settings.Instance["Protar_speechhighegttrigger"] != null)
+                    speechstring = Settings.Instance["Protar_speechhighegttrigger"];
+                if (DialogResult.Cancel ==
+                    InputBox.Show("High engine EGT trigger", "What EGT do you want to warn at (°C)?", ref speechstring))
+                    return;
+                if (int.TryParse(speechstring, out number) && number >= 0)
+                    Settings.Instance["Protar_speechhighegttrigger"] = speechstring;
+                else
+                    CustomMessageBox.Show("Invalid input for <Protar_speechhighegttrigger>. Give a positive integer!");
+            }
+        }
+
+        private void CHK_FuelWarning_CheckedChanged(object sender, EventArgs e)
+        {
+            if (startup)
+                return;
+            Settings.Instance["Protar_speechlowfuel"] = ((CheckBox)sender).Checked.ToString();
+
+            if (((CheckBox)sender).Checked)
+            {
+                string speechstring = "0";
+                if (Settings.Instance["Protar_speechlowfueltrigger"] != null)
+                    speechstring = Settings.Instance["Protar_speechlowfueltrigger"];
+                if (DialogResult.Cancel ==
+                    InputBox.Show("Low fuel trigger", "What remaining fuel do you want to warn at (l)?", ref speechstring))
+                    return;
+                if (int.TryParse(speechstring, out int number) && number >= 0)
+                    Settings.Instance["Protar_speechlowfueltrigger"] = speechstring;
+                else
+                    CustomMessageBox.Show("Invalid input for <Protar_speechlowfueltrigger>. Give a positive integer!");
+            }
+        }
+
+        private void CHK_CommWarning_CheckedChanged(object sender, EventArgs e)
+        {
+            if (startup)
+                return;
+            Settings.Instance["Protar_speechlowlinkquality"] = ((CheckBox)sender).Checked.ToString();
+
+            if (((CheckBox)sender).Checked)
+            {
+                string speechstring = "0";
+                if (Settings.Instance["Protar_speechlowlinkqualitytrigger"] != null)
+                    speechstring = Settings.Instance["Protar_speechlowlinkqualitytrigger"];
+                if (DialogResult.Cancel ==
+                    InputBox.Show("Low link quatity trigger", "What link quatity do you want to warn at (%)?", ref speechstring))
+                    return;
+                // input check
+                if (int.TryParse(speechstring, out int number) && number >= 0)
+                    Settings.Instance["Protar_speechlowlinkqualitytrigger"] = speechstring;
+                else
+                    CustomMessageBox.Show("Invalid input for <Protar_speechlowlinkqualitytrigger>. Give a positive integer!");
+            }
+        }
+
+        private void CHK_ekfWarning_CheckedChanged(object sender, EventArgs e)
+        {
+            if (startup)
+                return;
+            Settings.Instance["Protar_speechekf"] = ((CheckBox)sender).Checked.ToString();
+        }
+
+        private void CHK_VibrationWarning_CheckedChanged(object sender, EventArgs e)
+        {
+            if (startup)
+                return;
+            Settings.Instance["Protar_speechvibration"] = ((CheckBox)sender).Checked.ToString();
+        }
+
+        private void CHK_GPSWarning_CheckedChanged(object sender, EventArgs e)
+        {
+            if (startup)
+                return;
+            Settings.Instance["Protar_speechgps"] = ((CheckBox)sender).Checked.ToString();
+
+            if (((CheckBox)sender).Checked)
+            {
+                // Low satellite count
+                string speechstring = "0";
+                if (Settings.Instance["Protar_speechlowsatellitecount"] != null)
+                    speechstring = Settings.Instance["Protar_speechlowsatellitecount"];
+                if (DialogResult.Cancel ==
+                    InputBox.Show("Low satellite trigger", "What satellite count do you want to warn at (pcs)?", ref speechstring))
+                    return;
+                // input check
+                if (int.TryParse(speechstring, out int number) && number >= 0)
+                    Settings.Instance["Protar_speechlowsatellitecount"] = speechstring;
+                else
+                    CustomMessageBox.Show("Invalid input for <Protar_speechlowsatellitecount>. Give a positive integer!");
+
+                // High HDOP
+                speechstring = "0";
+                if (Settings.Instance["Protar_speechlowhdoptrigger"] != null)
+                    speechstring = Settings.Instance["Protar_speechlowhdoptrigger"];
+                if (DialogResult.Cancel ==
+                    InputBox.Show("Low HDOP trigger", "What HDOP do you want to warn at (-)?", ref speechstring))
+                    return;
+                // input check
+                if (speechstring.Contains("."))
+                {
+                    CustomMessageBox.Show("Invalid input, use comma as decimal separator.");
+                }
+                else if (float.TryParse(speechstring, NumberStyles.Float, new CultureInfo("de-DE"), out float fnumber) && fnumber >= 0.0)
+                {
+                    Settings.Instance["Protar_speechlowhdoptrigger"] = speechstring;
+                }
+                else
+                {
+                    CustomMessageBox.Show("Invalid input for < Protar_speechlowhdoptrigger >.Give a positive float with comma as decimal separator!");
+                }
+            }
+        }
+
+        private void CHK_PitotWarning_CheckedChanged(object sender, EventArgs e)
+        {
+            if (startup)
+                return;
+            Settings.Instance["Protar_speechpitot"] = ((CheckBox)sender).Checked.ToString();
+
+            if (((CheckBox)sender).Checked)
+            {
+                // Pitot temp low trigger
+                string speechstring = "0";
+                int number = new int();
+                if (Settings.Instance["Protar_speechlowpitottemp"] != null)
+                    speechstring = Settings.Instance["Protar_speechlowpitottemp"];
+                if (DialogResult.Cancel ==
+                    InputBox.Show("Low pitot temperature trigger", "What LOW pitot temperature do you want to warn at (°C)?", ref speechstring))
+                    return;
+                if (int.TryParse(speechstring, out number))
+                    Settings.Instance["Protar_speechlowpitottemp"] = speechstring;
+                else
+                    CustomMessageBox.Show("Invalid input for <Protar_speechlowpitottemp>. Give an integer!");
+
+                // Pitot temp high trigger
+                speechstring = "0";
+                if (Settings.Instance["Protar_speechhighpitottemp"] != null)
+                    speechstring = Settings.Instance["Protar_speechhighpitottemp"];
+                if (DialogResult.Cancel ==
+                    InputBox.Show("High pitot temperature trigger", "What HIGH pitot temperature do you want to warn at (°C)?", ref speechstring))
+                    return;
+                if (int.TryParse(speechstring, out number))
+                    Settings.Instance["Protar_speechhighpitottemp"] = speechstring;
+                else
+                    CustomMessageBox.Show("Invalid input for <Protar_speechhighpitottemp>. Give an integer!");
+            }
+        }
+
+        private void CHK_JoystickError_CheckedChanged(object sender, EventArgs e)
+        {
+            if (startup)
+                return;
+            Settings.Instance["Protar_speechjoystickdisabled"] = ((CheckBox)sender).Checked.ToString();
+
+            if (((CheckBox)sender).Checked)
+            {
+                // telemetry lost for more than X seconds
+                string speechstring = "0";
+                int number = new int();
+                if (Settings.Instance["Protar_speechnotelemetry"] != null)
+                    speechstring = Settings.Instance["Protar_speechnotelemetry"];
+                if (DialogResult.Cancel ==
+                    InputBox.Show("Lost telemetry trigger", "What time after do you want to warn at (sec)?", ref speechstring))
+                    return;
+                // input check
+                if (speechstring.Contains("."))
+                {
+                    CustomMessageBox.Show("Invalid input, use comma as decimal separator.");
+                }
+                else if (float.TryParse(speechstring, NumberStyles.Float, new CultureInfo("de-DE"), out float fnumber) && number >= 0.0)
+                {
+                    Settings.Instance["Protar_speechnotelemetry"] = speechstring;
+                }
+                else
+                {
+                    CustomMessageBox.Show("Invalid input for <Protar_speechnotelemetry>. Give a positive float with comma as decimal separator!");
+                }
+            }
+        }
+        #endregion
     }
 }

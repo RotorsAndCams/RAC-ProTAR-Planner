@@ -57,22 +57,30 @@ namespace ptPlugin1
             }
             catch (Exception ex)
             {
+                if (Settings.Instance.GetBoolean("Protar_speechfleetsetuperror"))
+                    Speaker.Instance.SpeakMessage("Fleet setup failed because of an input error.");
                 CustomMessageBox.Show("Input Error" + ex.Message, "ERROR");
                 this.Close();
             }
 
             if ((cbEnable1.Checked == true) && (!idList.Contains(t1)))
             {
+                if (Settings.Instance.GetBoolean("Protar_speechfleetsetuperror"))
+                    Speaker.Instance.SpeakMessage("SLOT 1 allocated an invalid Tail Number.");
                 CustomMessageBox.Show("SLOT 1 allocated an invalid Tail Number", "ERROR");
                 this.Close();
             }
             if ((cbEnable2.Checked == true) && (!idList.Contains(t2)))
             {
+                if (Settings.Instance.GetBoolean("Protar_speechfleetsetuperror"))
+                    Speaker.Instance.SpeakMessage("SLOT 2 allocated an invalid Tail Number.");
                 CustomMessageBox.Show("SLOT 2 allocated an invalid Tail Number", "ERROR");
                 this.Close();
             }
             if ((cbEnable3.Checked == true) && (!idList.Contains(t3)))
             {
+                if (Settings.Instance.GetBoolean("Protar_speechfleetsetuperror"))
+                    Speaker.Instance.SpeakMessage("SLOT 3 allocated an invalid Tail Number.");
                 CustomMessageBox.Show("SLOT 3 allocated an invalid Tail Number", "ERROR");
                 this.Close();
             }
