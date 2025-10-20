@@ -123,6 +123,9 @@ namespace ptPlugin1
         public TabPage landingPage = new TabPage();
         public landingControl lc = new landingControl();
 
+        public TabPage autoLandingPage = new TabPage();
+        public AutoLandTester autoLandTester = new AutoLandTester();
+
         public TabPage overviewPage = new TabPage();
         public TableLayoutPanel tlOw = new TableLayoutPanel();   
         public Dictionary<string, Label> oWlabels = new Dictionary<string, Label>();
@@ -139,6 +142,9 @@ namespace ptPlugin1
         public ToolStripMenuItem tsDoAutoConnect = new ToolStripMenuItem();
         public ToolStripMenuItem tsConnectionOptions = new ToolStripMenuItem();
 
+        public ToolStripMenuItem tsSetBase = new ToolStripMenuItem();
+        public ToolStripMenuItem tsSetLand = new ToolStripMenuItem();
+
         string actualPanel = "";
 
         public int chuteServo;
@@ -152,6 +158,13 @@ namespace ptPlugin1
 
         internal GMapRoute landingRoute;
         internal static GMapOverlay landingOverlay;
+
+        // For markers on the map
+        Dictionary<int, GMapOverlay> landingPointOverlays;
+        internal static GMapOverlay basePointOverlay;
+
+        // New landing
+        AutoLandHandler autoLandHandler = new AutoLandHandler();
 
         public LandState landState = LandState.None;
 
@@ -231,6 +244,17 @@ namespace ptPlugin1
             tsConnectionOptions.Text = "Connection Options";
             tsConnectionOptions.Click += TsConnectOptions_Click;
             Host.FDMenuMap.Items.Add(tsConnectionOptions);
+
+            tsSetBase.Text = "Set Base Posision";
+            tsSetBase.Click += TsBasePoint_Click;
+            Host.FDMenuMap.Items.Add(tsSetBase);
+            //landingPointOverlay = new GMapOverlay("land");
+            landingPointOverlays = new Dictionary<int, GMapOverlay>();
+
+            tsSetLand.Text = "Set Landing Position";
+            tsSetLand.Click += TsNewLandingPoint_Click;
+            Host.FDMenuMap.Items.Add(tsSetLand);
+            basePointOverlay = new GMapOverlay("base");
 
             Panel panel1 = Host.MainForm.Controls.Find("Panel1", true).FirstOrDefault() as Panel;
 
@@ -464,6 +488,15 @@ namespace ptPlugin1
             lc.abortLandingClicked += Lc_abortLandingClicked;
             lc.nudgeSpeedClicked += Lc_nudgeSpeedClicked;
             Host.MainForm.FlightData.tabControlactions.TabPages.Add(landingPage);
+
+
+            autoLandingPage.Text = "AutoLanding";
+            autoLandingPage.Name = "autoLandingTab";
+            autoLandingPage.Controls.Add(autoLandTester);
+            autoLandTester.Size = autoLandingPage.ClientSize;
+            autoLandTester.Location = new Point(0, 0);
+            autoLandTester.Dock = DockStyle.Fill;
+            Host.MainForm.FlightData.tabControlactions.TabPages.Add(autoLandingPage);
 
             initTWPConsole();
             twpPage.Text = "Timed Waypoints";
@@ -795,10 +828,28 @@ namespace ptPlugin1
 
             aMain1.SysID = plane1ID;
             aMain2.SysID = plane2ID;
-            aMain3.SysID = plane3ID;    
-            aMain1.Name = plane1Name;    
+            aMain3.SysID = plane3ID;
+            aMain1.Name = plane1Name;
             aMain2.Name = plane2Name;
             aMain3.Name = plane3Name;
+
+            // Create landing point overlays for each plane
+            List<int> planes = new List<int>();
+            planes.Add(plane1ID);
+            planes.Add(plane2ID);
+            planes.Add(plane3ID);
+            foreach (int planeID in planes)
+            {
+                if (planeID == 0) continue;
+
+                try
+                {
+                    landingPointOverlays.Add(planeID, new GMapOverlay($"land{planeID}"));
+                }
+
+                catch (ArgumentException)
+                {}
+            }
 
             MainV2.instance.BeginInvoke((MethodInvoker)(() =>
             {
@@ -1466,6 +1517,43 @@ namespace ptPlugin1
 
             Console.WriteLine("Payload ignite:{0}", plControl.igniteMask);
 
+        }
+
+        // Set landing point (new solution)
+        private void TsNewLandingPoint_Click(object sender, EventArgs e)
+        {
+            int planeID = Host.comPort.sysidcurrent;
+            if (planeID == 0) return;
+
+            // Marker placement
+            PointLatLngAlt pointClicked = Host.FDMenuMapPosition;
+            landingPointOverlays[planeID].Markers.Clear();
+            markerLanding = new GMarkerGoogle(pointClicked, GMarkerGoogleType.green_dot);
+            markerLanding.ToolTipText = $"Land: {planeID}";
+            landingPointOverlays[planeID].Markers.Add(markerLanding);
+            Host.FDGMapControl.Overlays.Add(landingPointOverlays[planeID]);
+
+
+            // TODO: make sure each plane has its own autoLandHandler
+            // Give location to auto landing
+            autoLandHandler.LandingPoint = pointClicked;
+            // The UAV has to know its landing position before take-off
+            autoLandHandler.isLandingSet = true;
+        }
+
+        // Set base point (new solution)
+        private void TsBasePoint_Click(object sender, EventArgs e)
+        {
+            // Marker placement
+            PointLatLngAlt pointClicked = Host.FDMenuMapPosition;
+            basePointOverlay.Markers.Clear();
+            markerWaiting = new GMarkerGoogle(pointClicked, GMarkerGoogleType.red_dot);
+            markerWaiting.ToolTipText = "Base";
+            basePointOverlay.Markers.Add(markerWaiting);
+            Host.FDGMapControl.Overlays.Add(basePointOverlay);
+
+            // Give location to auto landing
+            autoLandHandler.BasePoint = pointClicked;
         }
 
         // Set landing point

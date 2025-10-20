@@ -114,6 +114,12 @@
     <Compile Include="annunciator.Designer.cs">
       <DependentUpon>annunciator.cs</DependentUpon>
     </Compile>
+    <Compile Include="AutoLandTester.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="AutoLandTester.Designer.cs">
+      <DependentUpon>AutoLandTester.cs</DependentUpon>
+    </Compile>
     <Compile Include="batterypanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -224,6 +230,9 @@
     <Content Include="wrench2.png" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="AutoLandTester.resx">
+      <DependentUpon>AutoLandTester.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="batterypanel.resx">
       <DependentUpon>batterypanel.cs</DependentUpon>
     </EmbeddedResource>
