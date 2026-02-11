@@ -9,6 +9,11 @@ using MissionPlanner.Controls.PreFlight;
 using MissionPlanner.Maps;
 using MissionPlanner.Plugin;
 using MissionPlanner.Utilities;
+using NLog;
+using NLog;
+using NLog.Config;
+using NLog.Config;
+using ptPlugin1.Utility;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -19,8 +24,10 @@ using System.Linq.Expressions;
 using System.Media;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
+using static MissionPlanner.Utilities.adsb;
 using static MissionPlanner.Utilities.LTM;
 
 //By Bandi
@@ -143,6 +150,7 @@ namespace ptPlugin1
         public ToolStripMenuItem tsConnectionOptions = new ToolStripMenuItem();
 
         public ToolStripMenuItem tsSetBase = new ToolStripMenuItem();
+        public ToolStripMenuItem tsClearBase = new ToolStripMenuItem();
         public ToolStripMenuItem tsSetLand = new ToolStripMenuItem();
 
         string actualPanel = "";
@@ -162,9 +170,6 @@ namespace ptPlugin1
         // For markers on the map
         Dictionary<int, GMapOverlay> landingPointOverlays;
         internal static GMapOverlay basePointOverlay;
-
-        // New landing
-        AutoLandHandler autoLandHandler = new AutoLandHandler();
 
         public LandState landState = LandState.None;
 
@@ -213,6 +218,34 @@ namespace ptPlugin1
         //[DebuggerHidden]
         public override bool Init()
         {
+            // Attempt to load plugin-local NLog.config so the plugin controls its own logging.
+            try
+            {
+                // Primary: config next to plugin assembly (works when plugin DLL runs from its folder)
+                var asmDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? AppDomain.CurrentDomain.BaseDirectory;
+                var pluginConfigPath = Path.Combine(asmDir, "NLog.config");
+
+                // Fallback: expected path relative to app base (useful when debugging from IDE)
+                if (!File.Exists(pluginConfigPath))
+                {
+                    pluginConfigPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Plugins", "ptPlugin1", "NLog.config");
+                }
+
+                if (File.Exists(pluginConfigPath))
+                {
+                    var cfg = new XmlLoggingConfiguration(pluginConfigPath);
+                    LogManager.Configuration = cfg;
+                    System.Diagnostics.Debug.WriteLine($"Loaded NLog config from: {pluginConfigPath}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"NLog config not found at: {pluginConfigPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Failed to load plugin NLog.config: " + ex.Message);
+            }
             loopratehz = 5;  // Loop runs every second (The value is in Hertz, so 2 means every 500ms, 0.1f means every 10 second...) 
             return true;	 // If it is false then plugin will not load
         }
@@ -221,7 +254,7 @@ namespace ptPlugin1
         public override bool Loaded()
         {
             // Get supervisor state from config
-            _isSupervisor = Host.config.GetBoolean(_isSupervisorKey, false);
+           _isSupervisor = Host.config.GetBoolean(_isSupervisorKey, false);
             Host.config[_isSupervisorKey] = _isSupervisor.ToString();
 
             tsLandingPoint.Text = "Set Landing Point";
@@ -248,8 +281,11 @@ namespace ptPlugin1
             tsSetBase.Text = "Set Base Posision";
             tsSetBase.Click += TsBasePoint_Click;
             Host.FDMenuMap.Items.Add(tsSetBase);
-            //landingPointOverlay = new GMapOverlay("land");
             landingPointOverlays = new Dictionary<int, GMapOverlay>();
+
+            tsClearBase.Text = "Clear Base Posision";
+            tsClearBase.Click += TsClearBase_Click;
+            Host.FDMenuMap.Items.Add(tsClearBase);
 
             tsSetLand.Text = "Set Landing Position";
             tsSetLand.Click += TsNewLandingPoint_Click;
@@ -838,17 +874,26 @@ namespace ptPlugin1
             planes.Add(plane1ID);
             planes.Add(plane2ID);
             planes.Add(plane3ID);
-            foreach (int planeID in planes)
-            {
-                if (planeID == 0) continue;
 
+            // Connect planes to landing handlers
+            // Next iteration suggestion: Have a list of plane objects and have the handler be a part of that object
+            foreach (var port in MainV2.Comports)
+            {
+                if (!planes.Contains(port.sysidcurrent)) continue;
+
+                // If plane is already setup then skip
+                if (LandingHandler.Instance.planes.ContainsKey(port.sysidcurrent)) continue;
+
+                // create landing handler
+                LandingHandler.Instance.planes.Add(port.sysidcurrent, new AutoLanding(port));
+
+                // setup landing point overlay
                 try
                 {
-                    landingPointOverlays.Add(planeID, new GMapOverlay($"land{planeID}"));
+                    LandingHandler.Instance.landingPointOverlays.Add(port.sysidcurrent, new GMapOverlay($"land{port.sysidcurrent}"));
                 }
-
                 catch (ArgumentException)
-                {}
+                { }
             }
 
             MainV2.instance.BeginInvoke((MethodInvoker)(() =>
@@ -971,11 +1016,25 @@ namespace ptPlugin1
         {
             //The most important thing is to do the landing update, this will run at 5hz
             doLanding();
+            
+            // new method
+            foreach (AutoLanding plane in LandingHandler.Instance.planes.Values)
+            {
+                plane.doLanding();
+            }
+
+            MainV2.instance.BeginInvoke((MethodInvoker)(() =>
+            {
+                autoLandTester.updateLabels();
+                autoLandTester.updatePanelToActivePlane();
+            }));
 
             //If 500ms ellapsed to the processing
             if (((TimeSpan)(DateTime.Now - lastNonCriticalUpdate)).TotalMilliseconds > 500)
             {
                 lastNonCriticalUpdate = DateTime.Now;
+
+                BaseZone.Instance.fadeLines(basePointOverlay);
 
                 updateNotifications();
                 update_gauges();
@@ -988,6 +1047,8 @@ namespace ptPlugin1
                 {
                     lc.updateLabels();
                 }));
+
+
 
                 #region MessagesBox
 
@@ -1523,37 +1584,96 @@ namespace ptPlugin1
         private void TsNewLandingPoint_Click(object sender, EventArgs e)
         {
             int planeID = Host.comPort.sysidcurrent;
-            if (planeID == 0) return;
 
-            // Marker placement
+            if (!isPlaneInFleet(planeID)) return;
+
+            // If the plane already in landing proccess, check if the user wants to interrupt it
+            // Only used by custom landing point definition, since other positions are set before take-off and cannot be modified later
+            if (LandingHandler.Instance.planes[planeID].state != LandingState.None)
+            {
+                // Ask in if we want to interrupt the landing proccess, by redefineing the landing position
+                if (CustomMessageBox.Show("Are you sure you want to interrupt the landing proccess, by redefineing the landing position?", "Action", MessageBoxButtons.YesNo) == (int)DialogResult.Yes)
+                {
+                    LandingHandler.Instance.planes[planeID].state = LandingState.None;
+                }
+                else
+                {
+                    return;
+                }
+            }
+
             PointLatLngAlt pointClicked = Host.FDMenuMapPosition;
-            landingPointOverlays[planeID].Markers.Clear();
-            markerLanding = new GMarkerGoogle(pointClicked, GMarkerGoogleType.green_dot);
-            markerLanding.ToolTipText = $"Land: {planeID}";
-            landingPointOverlays[planeID].Markers.Add(markerLanding);
-            Host.FDGMapControl.Overlays.Add(landingPointOverlays[planeID]);
+            if (BaseZone.Instance.covers(pointClicked))             
+            {
+                CustomMessageBox.Show("Landing point cannot be inside the base area!", "Invalid point");
+                return;
+            }
 
-
-            // TODO: make sure each plane has its own autoLandHandler
             // Give location to auto landing
-            autoLandHandler.LandingPoint = pointClicked;
+
+            LandingHandler.Instance.planes[planeID].LandingPoint = pointClicked;
             // The UAV has to know its landing position before take-off
-            autoLandHandler.isLandingSet = true;
+            LandingHandler.Instance.planes[planeID].isLandingSet = true;
+            // Add option to landing control panel
+            MainV2.instance.BeginInvoke((MethodInvoker)(() =>
+            {
+                autoLandTester.addLzToCB_LandingZones(pointClicked);
+            }));
+
+            autoLandTester.addLzMarkerToMap();
+        }
+
+        private bool isPlaneInFleet(int planeID)
+        {
+            if (planeID == 0) 
+                return false;
+
+            // The planes dict is filled during fleet setup.
+            // If plane is not there, then fleet setup was not done properly.
+            if (!LandingHandler.Instance.planes.ContainsKey(planeID))
+            {
+                CustomMessageBox.Show($"Add plane {planeID} to the fleet.");
+                return false;
+            }
+
+            return true;
         }
 
         // Set base point (new solution)
         private void TsBasePoint_Click(object sender, EventArgs e)
         {
-            // Marker placement
+            // Get position of menu
             PointLatLngAlt pointClicked = Host.FDMenuMapPosition;
-            basePointOverlay.Markers.Clear();
-            markerWaiting = new GMarkerGoogle(pointClicked, GMarkerGoogleType.red_dot);
-            markerWaiting.ToolTipText = "Base";
+
+            // If concave then refuse to add new point
+            if (BaseZone.Instance.isConcaveWith(pointClicked)) return;
+
+            // Give location to auto landing (all planes share the same base)
+            BaseZone.Instance.pointList.Add(pointClicked);
+            BaseZone.Instance.timeOfLastBasePoint = DateTime.Now;
+            BaseZone.Instance.isSet = true;
+
+            // Make marker
+            markerWaiting = new GMarkerGoogle(pointClicked, GMarkerGoogleType.red);
+            markerWaiting.ToolTipText = $"{BaseZone.Instance.pointList.Count}";
             basePointOverlay.Markers.Add(markerWaiting);
             Host.FDGMapControl.Overlays.Add(basePointOverlay);
+            BaseZone.Instance.showOnMap(basePointOverlay);
+            Host.FDGMapControl.Refresh();
+            // Updates the map and place the marker to the correct position (refresh does not work)
+            Host.FDGMapControl.Position = Host.FDGMapControl.Position;
+        }
 
-            // Give location to auto landing
-            autoLandHandler.BasePoint = pointClicked;
+        private void TsClearBase_Click(object sender, EventArgs e)
+        {
+            basePointOverlay.Markers.Clear();
+            basePointOverlay.Routes.Clear();
+            basePointOverlay.Polygons.Clear();
+
+            BaseZone.Instance.pointList = new List<PointLatLngAlt>();
+            BaseZone.Instance.isSet = false;
+
+            Host.FDGMapControl.Refresh();
         }
 
         // Set landing point
