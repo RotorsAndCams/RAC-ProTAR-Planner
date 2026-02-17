@@ -40,6 +40,12 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="DOC\Landing.md" />
+    <Content Include="NLog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <None Include="NLog.xsd">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="packages.config" />
     <None Include="timedwp.lua">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -113,6 +119,12 @@
     </Compile>
     <Compile Include="annunciator.Designer.cs">
       <DependentUpon>annunciator.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AutoLandTester.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="AutoLandTester.Designer.cs">
+      <DependentUpon>AutoLandTester.cs</DependentUpon>
     </Compile>
     <Compile Include="batterypanel.cs">
       <SubType>UserControl</SubType>
@@ -201,12 +213,18 @@
     <Compile Include="unThemedButton.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Utility\ILogger.cs" />
+    <Compile Include="Utility\LandingLogger.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FastColoredTextBox, Version=2.16.24.0, Culture=neutral, PublicKeyToken=fb8aa12b994ef61b, processorArchitecture=MSIL">
       <HintPath>..\..\packages\FCTB.2.16.24\lib\FastColoredTextBox.dll</HintPath>
     </Reference>
+    <Reference Include="NLog, Version=6.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\NLog.6.1.0\lib\net46\NLog.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
@@ -224,6 +242,9 @@
     <Content Include="wrench2.png" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="AutoLandTester.resx">
+      <DependentUpon>AutoLandTester.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="batterypanel.resx">
       <DependentUpon>batterypanel.cs</DependentUpon>
     </EmbeddedResource>
