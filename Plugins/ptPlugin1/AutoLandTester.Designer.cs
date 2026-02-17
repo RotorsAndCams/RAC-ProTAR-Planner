@@ -64,6 +64,7 @@
             this.CB_LandingZones = new System.Windows.Forms.ComboBox();
             this.label13 = new System.Windows.Forms.Label();
             this.bAbortLanding = new System.Windows.Forms.Button();
+            this.bForceNextStage = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.UpDwn_Direction)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.UpDwn_Distance)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numericUpDown1)).BeginInit();
@@ -75,9 +76,9 @@
             // 
             // bStartLanding
             // 
-            this.bStartLanding.Location = new System.Drawing.Point(302, 47);
+            this.bStartLanding.Location = new System.Drawing.Point(23, 116);
             this.bStartLanding.Name = "bStartLanding";
-            this.bStartLanding.Size = new System.Drawing.Size(149, 36);
+            this.bStartLanding.Size = new System.Drawing.Size(136, 36);
             this.bStartLanding.TabIndex = 0;
             this.bStartLanding.Text = "Start Landing";
             this.bStartLanding.UseVisualStyleBackColor = true;
@@ -85,7 +86,7 @@
             // 
             // UpDwn_Direction
             // 
-            this.UpDwn_Direction.Location = new System.Drawing.Point(189, 201);
+            this.UpDwn_Direction.Location = new System.Drawing.Point(189, 234);
             this.UpDwn_Direction.Maximum = new decimal(new int[] {
             355,
             0,
@@ -98,7 +99,7 @@
             // 
             // UpDwn_Distance
             // 
-            this.UpDwn_Distance.Location = new System.Drawing.Point(189, 169);
+            this.UpDwn_Distance.Location = new System.Drawing.Point(189, 202);
             this.UpDwn_Distance.Maximum = new decimal(new int[] {
             9999,
             0,
@@ -122,7 +123,7 @@
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(20, 173);
+            this.label1.Location = new System.Drawing.Point(20, 206);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(105, 16);
             this.label1.TabIndex = 3;
@@ -131,7 +132,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(21, 203);
+            this.label2.Location = new System.Drawing.Point(21, 236);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(95, 16);
             this.label2.TabIndex = 4;
@@ -140,7 +141,7 @@
             // lLastUpdate
             // 
             this.lLastUpdate.AutoSize = true;
-            this.lLastUpdate.Location = new System.Drawing.Point(16, 644);
+            this.lLastUpdate.Location = new System.Drawing.Point(16, 677);
             this.lLastUpdate.Name = "lLastUpdate";
             this.lLastUpdate.Size = new System.Drawing.Size(116, 16);
             this.lLastUpdate.TabIndex = 8;
@@ -167,7 +168,7 @@
             // lDistanceToTarget
             // 
             this.lDistanceToTarget.AutoSize = true;
-            this.lDistanceToTarget.Location = new System.Drawing.Point(16, 618);
+            this.lDistanceToTarget.Location = new System.Drawing.Point(16, 651);
             this.lDistanceToTarget.Name = "lDistanceToTarget";
             this.lDistanceToTarget.Size = new System.Drawing.Size(125, 16);
             this.lDistanceToTarget.TabIndex = 11;
@@ -176,7 +177,7 @@
             // CHK_ApproachOverride
             // 
             this.CHK_ApproachOverride.AutoSize = true;
-            this.CHK_ApproachOverride.Location = new System.Drawing.Point(23, 143);
+            this.CHK_ApproachOverride.Location = new System.Drawing.Point(23, 176);
             this.CHK_ApproachOverride.Name = "CHK_ApproachOverride";
             this.CHK_ApproachOverride.Size = new System.Drawing.Size(174, 20);
             this.CHK_ApproachOverride.TabIndex = 15;
@@ -186,7 +187,7 @@
             // 
             // lineSeparator1
             // 
-            this.lineSeparator1.Location = new System.Drawing.Point(19, 594);
+            this.lineSeparator1.Location = new System.Drawing.Point(19, 627);
             this.lineSeparator1.MaximumSize = new System.Drawing.Size(2000, 2);
             this.lineSeparator1.MinimumSize = new System.Drawing.Size(0, 2);
             this.lineSeparator1.Name = "lineSeparator1";
@@ -195,7 +196,7 @@
             // 
             // lineSeparator2
             // 
-            this.lineSeparator2.Location = new System.Drawing.Point(23, 135);
+            this.lineSeparator2.Location = new System.Drawing.Point(23, 168);
             this.lineSeparator2.MaximumSize = new System.Drawing.Size(2000, 2);
             this.lineSeparator2.MinimumSize = new System.Drawing.Size(0, 2);
             this.lineSeparator2.Name = "lineSeparator2";
@@ -214,7 +215,7 @@
             // label5
             // 
             this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(355, 147);
+            this.label5.Location = new System.Drawing.Point(355, 180);
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(96, 16);
             this.label5.TabIndex = 19;
@@ -223,7 +224,7 @@
             // label6
             // 
             this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(363, 618);
+            this.label6.Location = new System.Drawing.Point(363, 651);
             this.label6.Name = "label6";
             this.label6.Size = new System.Drawing.Size(88, 16);
             this.label6.TabIndex = 20;
@@ -232,7 +233,7 @@
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(28, 251);
+            this.label3.Location = new System.Drawing.Point(28, 284);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(184, 16);
             this.label3.TabIndex = 22;
@@ -240,7 +241,7 @@
             // 
             // numericUpDown1
             // 
-            this.numericUpDown1.Location = new System.Drawing.Point(193, 277);
+            this.numericUpDown1.Location = new System.Drawing.Point(193, 310);
             this.numericUpDown1.Name = "numericUpDown1";
             this.numericUpDown1.Size = new System.Drawing.Size(82, 22);
             this.numericUpDown1.TabIndex = 23;
@@ -256,7 +257,7 @@
             this.CB_colors.DisplayMember = "Text";
             this.CB_colors.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.CB_colors.FormattingEnabled = true;
-            this.CB_colors.Location = new System.Drawing.Point(154, 470);
+            this.CB_colors.Location = new System.Drawing.Point(154, 503);
             this.CB_colors.Name = "CB_colors";
             this.CB_colors.Size = new System.Drawing.Size(121, 24);
             this.CB_colors.TabIndex = 24;
@@ -266,7 +267,7 @@
             // label7
             // 
             this.label7.AutoSize = true;
-            this.label7.Location = new System.Drawing.Point(28, 478);
+            this.label7.Location = new System.Drawing.Point(28, 511);
             this.label7.Name = "label7";
             this.label7.Size = new System.Drawing.Size(39, 16);
             this.label7.TabIndex = 25;
@@ -274,7 +275,7 @@
             // 
             // lineSeparator3
             // 
-            this.lineSeparator3.Location = new System.Drawing.Point(23, 241);
+            this.lineSeparator3.Location = new System.Drawing.Point(23, 274);
             this.lineSeparator3.MaximumSize = new System.Drawing.Size(2000, 2);
             this.lineSeparator3.MinimumSize = new System.Drawing.Size(0, 2);
             this.lineSeparator3.Name = "lineSeparator3";
@@ -283,7 +284,7 @@
             // 
             // lineSeparator4
             // 
-            this.lineSeparator4.Location = new System.Drawing.Point(28, 514);
+            this.lineSeparator4.Location = new System.Drawing.Point(28, 547);
             this.lineSeparator4.MaximumSize = new System.Drawing.Size(2000, 2);
             this.lineSeparator4.MinimumSize = new System.Drawing.Size(0, 2);
             this.lineSeparator4.Name = "lineSeparator4";
@@ -292,7 +293,7 @@
             // 
             // lineSeparator5
             // 
-            this.lineSeparator5.Location = new System.Drawing.Point(27, 308);
+            this.lineSeparator5.Location = new System.Drawing.Point(27, 341);
             this.lineSeparator5.MaximumSize = new System.Drawing.Size(2000, 2);
             this.lineSeparator5.MinimumSize = new System.Drawing.Size(0, 2);
             this.lineSeparator5.Name = "lineSeparator5";
@@ -302,7 +303,7 @@
             // CHK_ClockwiseTurn
             // 
             this.CHK_ClockwiseTurn.AutoSize = true;
-            this.CHK_ClockwiseTurn.Location = new System.Drawing.Point(31, 535);
+            this.CHK_ClockwiseTurn.Location = new System.Drawing.Point(31, 568);
             this.CHK_ClockwiseTurn.Name = "CHK_ClockwiseTurn";
             this.CHK_ClockwiseTurn.Size = new System.Drawing.Size(114, 20);
             this.CHK_ClockwiseTurn.TabIndex = 29;
@@ -312,7 +313,7 @@
             // 
             // UpDwn_CruiseSpeed
             // 
-            this.UpDwn_CruiseSpeed.Location = new System.Drawing.Point(193, 324);
+            this.UpDwn_CruiseSpeed.Location = new System.Drawing.Point(193, 357);
             this.UpDwn_CruiseSpeed.Name = "UpDwn_CruiseSpeed";
             this.UpDwn_CruiseSpeed.Size = new System.Drawing.Size(82, 22);
             this.UpDwn_CruiseSpeed.TabIndex = 30;
@@ -320,7 +321,7 @@
             // 
             // UpDwn_MeasSpeed
             // 
-            this.UpDwn_MeasSpeed.Location = new System.Drawing.Point(193, 353);
+            this.UpDwn_MeasSpeed.Location = new System.Drawing.Point(193, 386);
             this.UpDwn_MeasSpeed.Name = "UpDwn_MeasSpeed";
             this.UpDwn_MeasSpeed.Size = new System.Drawing.Size(82, 22);
             this.UpDwn_MeasSpeed.TabIndex = 31;
@@ -328,7 +329,7 @@
             // 
             // UpDwn_LineupSpeed
             // 
-            this.UpDwn_LineupSpeed.Location = new System.Drawing.Point(193, 382);
+            this.UpDwn_LineupSpeed.Location = new System.Drawing.Point(193, 415);
             this.UpDwn_LineupSpeed.Name = "UpDwn_LineupSpeed";
             this.UpDwn_LineupSpeed.Size = new System.Drawing.Size(82, 22);
             this.UpDwn_LineupSpeed.TabIndex = 32;
@@ -337,7 +338,7 @@
             // label8
             // 
             this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(28, 326);
+            this.label8.Location = new System.Drawing.Point(28, 359);
             this.label8.Name = "label8";
             this.label8.Size = new System.Drawing.Size(87, 16);
             this.label8.TabIndex = 33;
@@ -346,7 +347,7 @@
             // label9
             // 
             this.label9.AutoSize = true;
-            this.label9.Location = new System.Drawing.Point(28, 355);
+            this.label9.Location = new System.Drawing.Point(28, 388);
             this.label9.Name = "label9";
             this.label9.Size = new System.Drawing.Size(131, 16);
             this.label9.TabIndex = 34;
@@ -355,7 +356,7 @@
             // label10
             // 
             this.label10.AutoSize = true;
-            this.label10.Location = new System.Drawing.Point(28, 384);
+            this.label10.Location = new System.Drawing.Point(28, 417);
             this.label10.Name = "label10";
             this.label10.Size = new System.Drawing.Size(89, 16);
             this.label10.TabIndex = 35;
@@ -364,7 +365,7 @@
             // label11
             // 
             this.label11.AutoSize = true;
-            this.label11.Location = new System.Drawing.Point(28, 416);
+            this.label11.Location = new System.Drawing.Point(28, 449);
             this.label11.Name = "label11";
             this.label11.Size = new System.Drawing.Size(139, 16);
             this.label11.TabIndex = 36;
@@ -372,7 +373,7 @@
             // 
             // UpDwn_FinalSpeed
             // 
-            this.UpDwn_FinalSpeed.Location = new System.Drawing.Point(193, 414);
+            this.UpDwn_FinalSpeed.Location = new System.Drawing.Point(193, 447);
             this.UpDwn_FinalSpeed.Name = "UpDwn_FinalSpeed";
             this.UpDwn_FinalSpeed.Size = new System.Drawing.Size(82, 22);
             this.UpDwn_FinalSpeed.TabIndex = 37;
@@ -380,7 +381,7 @@
             // 
             // lineSeparator6
             // 
-            this.lineSeparator6.Location = new System.Drawing.Point(28, 452);
+            this.lineSeparator6.Location = new System.Drawing.Point(28, 485);
             this.lineSeparator6.MaximumSize = new System.Drawing.Size(2000, 2);
             this.lineSeparator6.MinimumSize = new System.Drawing.Size(0, 2);
             this.lineSeparator6.Name = "lineSeparator6";
@@ -390,7 +391,7 @@
             // label12
             // 
             this.label12.AutoSize = true;
-            this.label12.Location = new System.Drawing.Point(316, 251);
+            this.label12.Location = new System.Drawing.Point(316, 284);
             this.label12.Name = "label12";
             this.label12.Size = new System.Drawing.Size(130, 16);
             this.label12.TabIndex = 40;
@@ -419,18 +420,29 @@
             // 
             // bAbortLanding
             // 
-            this.bAbortLanding.Location = new System.Drawing.Point(302, 89);
+            this.bAbortLanding.Location = new System.Drawing.Point(168, 116);
             this.bAbortLanding.Name = "bAbortLanding";
-            this.bAbortLanding.Size = new System.Drawing.Size(149, 36);
+            this.bAbortLanding.Size = new System.Drawing.Size(136, 36);
             this.bAbortLanding.TabIndex = 43;
             this.bAbortLanding.Text = "Abort Landing";
             this.bAbortLanding.UseVisualStyleBackColor = true;
             this.bAbortLanding.Click += new System.EventHandler(this.bAbortLanding_Click);
             // 
+            // bForceNextStage
+            // 
+            this.bForceNextStage.Location = new System.Drawing.Point(310, 116);
+            this.bForceNextStage.Name = "bForceNextStage";
+            this.bForceNextStage.Size = new System.Drawing.Size(136, 36);
+            this.bForceNextStage.TabIndex = 44;
+            this.bForceNextStage.Text = "Force Next Stage";
+            this.bForceNextStage.UseVisualStyleBackColor = true;
+            this.bForceNextStage.Click += new System.EventHandler(this.bForceNextStage_Click);
+            // 
             // AutoLandTester
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.bForceNextStage);
             this.Controls.Add(this.bAbortLanding);
             this.Controls.Add(this.label13);
             this.Controls.Add(this.CB_LandingZones);
@@ -468,7 +480,7 @@
             this.Controls.Add(this.UpDwn_Direction);
             this.Controls.Add(this.bStartLanding);
             this.Name = "AutoLandTester";
-            this.Size = new System.Drawing.Size(470, 689);
+            this.Size = new System.Drawing.Size(470, 742);
             ((System.ComponentModel.ISupportInitialize)(this.UpDwn_Direction)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.UpDwn_Distance)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numericUpDown1)).EndInit();
@@ -519,5 +531,6 @@
         private System.Windows.Forms.ComboBox CB_LandingZones;
         private System.Windows.Forms.Label label13;
         private System.Windows.Forms.Button bAbortLanding;
+        private System.Windows.Forms.Button bForceNextStage;
     }
 }

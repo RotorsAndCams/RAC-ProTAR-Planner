@@ -483,6 +483,21 @@ namespace ptPlugin1
             Settings.Instance["Protar_approachAirSpeed"] = UpDwn_FinalSpeed.Value.ToString();
         }
 
+        private void bForceNextStage_Click(object sender, EventArgs e)
+        {
+            // Get the plane's AutoLanding instance
+            int planeID = MainV2.comPort.sysidcurrent;
+            // Check if the plane exists in the landing handler
+            if (!LandingHandler.Instance.planes.ContainsKey(planeID)) return;
+
+            // Check window to avoid accidental clicks
+            DialogResult dialogResult = MessageBox.Show("Are you sure you want to force the next stage? This may cause unexpected behavior if the plane is not in the expected state.", "Force next stage", MessageBoxButtons.YesNo);
+            if (dialogResult == DialogResult.No) return;
+            
+            LandingHandler.Instance.planes[planeID].forceNextStage = true;
+            LandingLogger.GetInstance().Info($"Force next stage", planeID);
+        }
+
         # endregion Overrides
 
         //--------------------------------
@@ -546,8 +561,6 @@ namespace ptPlugin1
             // Set landing point from the selected combo box item
             LandingHandler.Instance.planes[planeID].LandingPoint = (PointLatLngAlt)CB_LandingZones.SelectedValue;
         }
-
-
     }
     #endregion
 
@@ -841,6 +854,7 @@ namespace ptPlugin1
         public int overrideApproachDir = 0;        // degrees
         public int overrideApproachDistance = 100; // meters
         public Color displayColor = Color.White;
+        public bool forceNextStage = false; // Forces the landing process to go to the next stage when the button is clicked, skipping the checks for the current stage completion
 
         //--------------------------------
         // Maneuver parameters
@@ -1000,6 +1014,7 @@ namespace ptPlugin1
 
             // Increment state
             state = LandingState.UpToRTLAltitude;
+            forceNextStage = false;
 
             // Set cruise airspeed 
             if (!tryToChangeAirSpeed(cruiseAirSpeed))
@@ -1091,24 +1106,26 @@ namespace ptPlugin1
             if (state == LandingState.UpToRTLAltitude)
             {
                 // Check if we reached the RTL altitude
-                if (port.MAV.cs.alt < (float)port.MAV.param["RTL_ALTITUDE"].Value) return;
+                if (port.MAV.cs.alt < (float)port.MAV.param["RTL_ALTITUDE"].Value && !forceNextStage) return;
+                forceNextStage = false;
 
-                // Go to landing point
                 // Increment state
                 state = LandingState.GoToLandingPoint;
 
-                // Set the loiter radius to 0 to get close to the enty point
-                setLoiterRadius(0);
-
+                // Determine entry point and loiter radius for the landing point approach
                 // If the vehicle is close to the landing point, set it as the target.
                 if (distToTarget(port.MAV.cs.Location, LandingPoint) <= 2 * loiterRadius())
                 {
                     EntryPoint = LandingPoint;
+                    // Set the loiter radius to measurement radius
+                    setLoiterRadius(loiterRadius());
                 }
                 // Calculate the entry point to enable a smooth transition into the circle.
                 else
                 {
                     EntryPoint = LandingPoint.newpos(port.MAV.cs.Location.GetBearing(LandingPoint) - 90 * (int)turnDirection, loiterRadius());
+                    // Set the loiter radius to 0 to get close to the enty point
+                    setLoiterRadius(0);
                 }
 
                 // Send to entry point
@@ -1128,7 +1145,8 @@ namespace ptPlugin1
             if (state == LandingState.GoToLandingPoint)
             {
                 // Check if we reached the landing point
-                if (distToTarget(port.MAV.cs.Location, EntryPoint) >= loiterRadius() + distanceThreshold) return;
+                if ((distToTarget(port.MAV.cs.Location, EntryPoint) >= (loiterRadius() + distanceThreshold)) && !forceNextStage) return;
+                forceNextStage = false;
 
                 // Increment state
                 state = LandingState.PrepareForMeasurement;
@@ -1168,8 +1186,10 @@ namespace ptPlugin1
             if (state == LandingState.PrepareForMeasurement)
             {
                 // Check if we reached the landing altitude and measuring speed
-                if (Math.Abs(port.MAV.cs.alt - landingAltitude) > distanceThreshold ||
-                    Math.Abs(port.MAV.cs.airspeed - measurementAirSpeed) > speedThreshold) return;
+                if ((Math.Abs(port.MAV.cs.alt - landingAltitude) > distanceThreshold ||
+                    Math.Abs(port.MAV.cs.airspeed - measurementAirSpeed) > speedThreshold) &&
+                    !forceNextStage) return;
+                forceNextStage = false;
 
                 // Increment state
                 state = LandingState.MeasureWind;
@@ -1186,6 +1206,7 @@ namespace ptPlugin1
                 // Check if measurement time limit is reached. TODO: add wind data quality check
                 if (DateTime.Now - measurementStarted <= maxMeasurementTime) 
                     return;
+                forceNextStage = false;
 
                 // Increment state
                 state = LandingState.WaitForTransitionPoint;
@@ -1272,9 +1293,10 @@ namespace ptPlugin1
                 // Check if we reached the bank point
                 float currentDir = Convert.ToSingle(TurnPoint.GetBearing(port.MAV.cs.Location));
                 float dirDiff = Math.Abs(angleDifference(currentDir, dirFromTurnToApproach));
-                if (dirDiff >= directionThreshold ||
-                    Math.Abs(port.MAV.cs.airspeed - lineupAirSpeed) >= speedThreshold)
+                if (dirDiff >= directionThreshold || 
+                    ((Math.Abs(port.MAV.cs.airspeed - lineupAirSpeed) >= speedThreshold) && !forceNextStage))
                     return;
+                forceNextStage = false;
 
                 // Increment state
                 state = LandingState.GoToLand;
@@ -1446,27 +1468,11 @@ namespace ptPlugin1
                 return overrideApproachDir;
 
             // Get wind direction
-            float approachDir = 0; // port.MAV.cs.wind_dir;
+            float approachDir = port.MAV.cs.wind_dir;
 
             // If base point is not set, return wind direction as approach direction
             if (!BaseZone.Instance.isSet)
                 return approachDir;
-
-            /*
-            // dir to base point from landing point
-            double bearingToBasePoint = LandingPoint.GetBearing(BasePoint);
-
-            // Check if the approach direction is too close to the base direction
-            float diff = angleDifference(approachDir, Convert.ToSingle(bearingToBasePoint)); 
-            if (Math.Abs(diff) > minBaseSafetyAngle)
-                return approachDir; // OK   
-
-            // Adjust approach direction to avoid flying over the base point
-            if (diff<0)
-                approachDir = (float)(bearingToBasePoint - minBaseSafetyAngle);
-            else
-                approachDir = (float)(bearingToBasePoint + minBaseSafetyAngle);
-            */
 
             // If base zone has less than 2 points, cannot calculate safety zone
             if (BaseZone.Instance.pointList.Count < 2)
